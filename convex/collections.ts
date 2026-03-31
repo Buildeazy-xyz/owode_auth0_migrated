@@ -102,6 +102,40 @@ export const listByAgent = query({
   },
 });
 
+export const getByReference = query({
+  args: { referenceNumber: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+
+    const collection = await ctx.db
+      .query("collections")
+      .withIndex("by_reference", (q) =>
+        q.eq("referenceNumber", args.referenceNumber),
+      )
+      .unique();
+
+    if (!collection) {
+      return null;
+    }
+
+    const contributor = await ctx.db.get(collection.contributorId);
+    const agent = await ctx.db.get(collection.agentId);
+
+    return {
+      ...collection,
+      contributorName: contributor?.name ?? "Unknown",
+      contributorPhone: contributor?.phone ?? "",
+      agentName: agent?.name ?? "Unknown",
+    };
+  },
+});
+
 export const getTodaySummary = query({
   args: {},
   handler: async (ctx) => {

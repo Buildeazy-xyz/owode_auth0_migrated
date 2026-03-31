@@ -155,3 +155,92 @@ export const listByAgent = query({
       .collect();
   },
 });
+
+/** Claim a contributor record by matching phone number */
+export const claimAccount = mutation({
+  args: { phone: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique();
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User not found",
+      });
+    }
+
+    // Find contributor records matching this phone
+    const matches = await ctx.db
+      .query("contributors")
+      .withIndex("by_phone", (q) => q.eq("phone", args.phone))
+      .collect();
+
+    // Filter to only un-claimed records
+    const unclaimed = matches.filter((c) => !c.userId);
+    if (unclaimed.length === 0) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message:
+          "No contributor account found with this phone number. Please ask your agent to add you first.",
+      });
+    }
+
+    // Take the first match (most common scenario: one contributor per phone)
+    const contributor = unclaimed[0];
+
+    // Link both sides
+    await ctx.db.patch(contributor._id, { userId: user._id });
+    await ctx.db.patch(user._id, {
+      role: "contributor",
+      phone: args.phone,
+      contributorId: contributor._id,
+    });
+
+    return contributor._id;
+  },
+});
+
+/** Get the current contributor's profile with agent info */
+export const getMyProfile = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique();
+    if (!user || !user.contributorId) {
+      return null;
+    }
+
+    const contributor = await ctx.db.get(user.contributorId);
+    if (!contributor) return null;
+
+    const agent = await ctx.db.get(contributor.agentId);
+
+    return {
+      ...contributor,
+      agentName: agent?.name ?? "Unknown",
+      agentPhone: agent?.phone ?? "",
+    };
+  },
+});

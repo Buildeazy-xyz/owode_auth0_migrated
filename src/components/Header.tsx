@@ -26,7 +26,12 @@ function DashboardLink({ className }: { className?: string }) {
   if (user === undefined || user === null) {
     return <Skeleton className="h-9 w-24" />;
   }
-  const href = user.role === "agent" ? "/agent" : "/onboarding";
+  const href =
+    user.role === "agent"
+      ? "/agent"
+      : user.role === "contributor"
+        ? "/contributor"
+        : "/onboarding";
   return (
     <Button size="sm" asChild className={className}>
       <Link to={href}>Dashboard</Link>

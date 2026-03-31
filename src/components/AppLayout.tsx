@@ -65,7 +65,7 @@ function AppNav() {
           <div className="flex items-center gap-4">
             {user ? (
               <span className="text-sm text-muted-foreground hidden sm:block">
-                {user.name || user.email || "Agent"}
+                {user.name || user.email || "User"}
               </span>
             ) : (
               <Skeleton className="h-4 w-20 hidden sm:block" />

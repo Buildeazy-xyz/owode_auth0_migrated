@@ -14,6 +14,8 @@ export default defineSchema({
       ),
     ),
     phone: v.optional(v.string()),
+    /** Links a contributor-role user to their contributor record */
+    contributorId: v.optional(v.id("contributors")),
   }).index("by_token", ["tokenIdentifier"]),
 
   contributors: defineTable({
@@ -24,7 +26,9 @@ export default defineSchema({
     dailyAmount: v.number(),
     status: v.union(v.literal("active"), v.literal("inactive")),
     userId: v.optional(v.id("users")),
-  }).index("by_agent", ["agentId"]),
+  })
+    .index("by_agent", ["agentId"])
+    .index("by_phone", ["phone"]),
 
   collections: defineTable({
     contributorId: v.id("contributors"),

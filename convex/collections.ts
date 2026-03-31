@@ -211,3 +211,127 @@ export const getTodaySummary = query({
     };
   },
 });
+
+/** Get all collections for the current contributor this month */
+export const getMyCollections = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique();
+    if (!user || !user.contributorId) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "No contributor profile linked",
+      });
+    }
+
+    return await ctx.db
+      .query("collections")
+      .withIndex("by_contributor", (q) =>
+        q.eq("contributorId", user.contributorId!),
+      )
+      .order("desc")
+      .take(100);
+  },
+});
+
+/** Virtual card summary for the current month */
+export const getMyCardSummary = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique();
+    if (!user || !user.contributorId) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "No contributor profile linked",
+      });
+    }
+
+    const contributor = await ctx.db.get(user.contributorId);
+    if (!contributor) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Contributor record not found",
+      });
+    }
+
+    // Get all collections for this contributor
+    const allCollections = await ctx.db
+      .query("collections")
+      .withIndex("by_contributor", (q) =>
+        q.eq("contributorId", user.contributorId!),
+      )
+      .order("desc")
+      .collect();
+
+    // Current month boundaries in UTC
+    const now = new Date();
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    ).toISOString();
+    const monthEnd = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    ).toISOString();
+
+    const thisMonthCollections = allCollections.filter(
+      (c) => c.collectedAt >= monthStart && c.collectedAt < monthEnd,
+    );
+
+    const totalSaved = allCollections.reduce((sum, c) => sum + c.amount, 0);
+    const monthTotal = thisMonthCollections.reduce(
+      (sum, c) => sum + c.amount,
+      0,
+    );
+
+    // Build a set of days-of-month that have payments
+    const paidDays = new Set<number>();
+    for (const c of thisMonthCollections) {
+      const day = new Date(c.collectedAt).getUTCDate();
+      paidDays.add(day);
+    }
+
+    // Days in current month
+    const daysInMonth = new Date(
+      now.getUTCFullYear(),
+      now.getUTCMonth() + 1,
+      0,
+    ).getUTCDate();
+
+    const currentDay = now.getUTCDate();
+
+    return {
+      dailyAmount: contributor.dailyAmount,
+      daysInMonth,
+      currentDay,
+      paidDays: Array.from(paidDays).sort((a, b) => a - b),
+      daysPaid: paidDays.size,
+      monthTotal,
+      totalSaved,
+      totalCollections: allCollections.length,
+      monthTarget: contributor.dailyAmount * daysInMonth,
+    };
+  },
+});

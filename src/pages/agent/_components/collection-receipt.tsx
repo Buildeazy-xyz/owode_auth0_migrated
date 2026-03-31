@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { CheckCircle, Copy, Share2 } from "lucide-react";
+import { CheckCircle, Copy, Share2, Banknote, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { toast } from "sonner";
 
@@ -9,6 +9,8 @@ type ReceiptData = {
   amount: number;
   collectedAt: string;
   agentName: string;
+  paymentMethod: "cash" | "bank_transfer";
+  bankReference?: string;
 };
 
 export default function CollectionReceipt({
@@ -18,17 +20,23 @@ export default function CollectionReceipt({
   data: ReceiptData;
   onClose: () => void;
 }) {
-  const receiptText = [
+  const methodLabel =
+    data.paymentMethod === "bank_transfer" ? "Bank Transfer" : "Cash";
+
+  const receiptLines = [
     "OWODE Digital Services Ltd",
     "---",
     `Ref: ${data.referenceNumber}`,
     `Contributor: ${data.contributorName}`,
     `Amount: ₦${data.amount.toLocaleString()}`,
+    `Method: ${methodLabel}`,
+    ...(data.bankReference ? [`Bank Ref: ${data.bankReference}`] : []),
     `Date: ${format(new Date(data.collectedAt), "dd MMM yyyy, h:mm a")}`,
     `Agent: ${data.agentName}`,
     "---",
     "This is your digital proof of payment.",
-  ].join("\n");
+  ];
+  const receiptText = receiptLines.join("\n");
 
   const handleCopyRef = async () => {
     await navigator.clipboard.writeText(data.referenceNumber);
@@ -90,6 +98,25 @@ export default function CollectionReceipt({
               ₦{data.amount.toLocaleString()}
             </span>
           </div>
+          <div className="flex justify-between text-sm items-center">
+            <span className="text-muted-foreground">Payment Method</span>
+            <span className="flex items-center gap-1.5 font-medium">
+              {data.paymentMethod === "bank_transfer" ? (
+                <ArrowRightLeft className="w-3.5 h-3.5 text-blue-500" />
+              ) : (
+                <Banknote className="w-3.5 h-3.5 text-green-600" />
+              )}
+              {methodLabel}
+            </span>
+          </div>
+          {data.bankReference && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Bank Ref</span>
+              <span className="font-mono text-xs max-w-[60%] truncate">
+                {data.bankReference}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Date</span>
             <span>
@@ -111,7 +138,11 @@ export default function CollectionReceipt({
 
       {/* Actions */}
       <div className="flex gap-3">
-        <Button variant="secondary" className="flex-1 gap-2" onClick={handleShare}>
+        <Button
+          variant="secondary"
+          className="flex-1 gap-2"
+          onClick={handleShare}
+        >
           <Share2 className="w-4 h-4" />
           Share Receipt
         </Button>

@@ -15,13 +15,20 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty.tsx";
-import { ClipboardList } from "lucide-react";
+import {
+  ClipboardList,
+  Banknote,
+  ArrowRightLeft,
+} from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  confirmed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  disputed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  pending:
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  confirmed:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  disputed:
+    "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
 export default function CollectionHistory() {
@@ -72,9 +79,23 @@ export default function CollectionHistory() {
                       {c.status}
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-muted-foreground font-mono">
-                    {c.referenceNumber}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-muted-foreground font-mono">
+                      {c.referenceNumber}
+                    </p>
+                    {/* Payment method indicator */}
+                    {c.paymentMethod === "bank_transfer" ? (
+                      <span className="flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400">
+                        <ArrowRightLeft className="w-3 h-3" />
+                        Transfer
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-0.5 text-[10px] text-green-700 dark:text-green-400">
+                        <Banknote className="w-3 h-3" />
+                        Cash
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="font-semibold text-sm">

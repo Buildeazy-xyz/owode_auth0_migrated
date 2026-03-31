@@ -12,6 +12,8 @@ export const record = mutation({
   args: {
     contributorId: v.id("contributors"),
     amount: v.number(),
+    paymentMethod: v.union(v.literal("cash"), v.literal("bank_transfer")),
+    bankReference: v.optional(v.string()),
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -44,6 +46,14 @@ export const record = mutation({
       });
     }
 
+    // Bank transfers should include a reference
+    if (args.paymentMethod === "bank_transfer" && !args.bankReference) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Bank transfer reference is required for transfer payments",
+      });
+    }
+
     const referenceNumber = generateReference();
     const collectedAt = new Date().toISOString();
 
@@ -54,6 +64,8 @@ export const record = mutation({
       collectedAt,
       referenceNumber,
       status: "pending",
+      paymentMethod: args.paymentMethod,
+      bankReference: args.bankReference,
       note: args.note,
     });
 
@@ -173,6 +185,12 @@ export const getTodaySummary = query({
       .collect();
 
     const totalAmount = todayCollections.reduce((sum, c) => sum + c.amount, 0);
+    const cashTotal = todayCollections
+      .filter((c) => c.paymentMethod === "cash")
+      .reduce((sum, c) => sum + c.amount, 0);
+    const transferTotal = todayCollections
+      .filter((c) => c.paymentMethod === "bank_transfer")
+      .reduce((sum, c) => sum + c.amount, 0);
 
     // Get contributor counts
     const contributors = await ctx.db
@@ -186,6 +204,8 @@ export const getTodaySummary = query({
     return {
       todayTotal: totalAmount,
       todayCount: todayCollections.length,
+      cashTotal,
+      transferTotal,
       activeContributors,
       totalContributors: contributors.length,
     };

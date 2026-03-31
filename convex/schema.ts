@@ -37,6 +37,12 @@ export default defineSchema({
       v.literal("confirmed"),
       v.literal("disputed"),
     ),
+    paymentMethod: v.union(
+      v.literal("cash"),
+      v.literal("bank_transfer"),
+    ),
+    /** Bank transfer reference / session ID from contributor's bank app */
+    bankReference: v.optional(v.string()),
     note: v.optional(v.string()),
   })
     .index("by_agent_and_date", ["agentId", "collectedAt"])

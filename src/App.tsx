@@ -3,6 +3,9 @@ import { DefaultProviders } from "./components/providers/default.tsx";
 import AuthCallback from "./pages/auth/Callback.tsx";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import AppLayout from "./components/AppLayout.tsx";
+import OnboardingPage from "./pages/onboarding/page.tsx";
+import AgentDashboard from "./pages/agent/page.tsx";
 
 export default function App() {
   return (
@@ -11,6 +14,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          {/* Protected routes with shared layout */}
+          <Route element={<AppLayout />}>
+            <Route path="/agent" element={<AgentDashboard />} />
+          </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

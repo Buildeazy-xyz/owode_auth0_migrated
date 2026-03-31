@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as collections from "../collections.js";
+import type * as contributors from "../contributors.js";
 import type * as users from "../users.js";
 
 import type {
@@ -17,6 +19,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  collections: typeof collections;
+  contributors: typeof contributors;
   users: typeof users;
 }>;
 

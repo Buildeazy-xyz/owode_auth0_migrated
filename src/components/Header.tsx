@@ -1,9 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
+import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Menu, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { toast } from "sonner";
+import {
+  Authenticated,
+  Unauthenticated,
+  AuthLoading,
+  useQuery,
+} from "convex/react";
+import { api } from "@/convex/_generated/api.js";
+import { SignInButton } from "@/components/ui/signin.tsx";
 
 const NAV_LINKS = [
   { label: "How It Works", href: "#how-it-works" },
@@ -11,6 +19,20 @@ const NAV_LINKS = [
   { label: "For Agents", href: "#for-agents" },
   { label: "For Contributors", href: "#for-contributors" },
 ];
+
+/** Resolves the correct dashboard URL based on the user's role */
+function DashboardLink({ className }: { className?: string }) {
+  const user = useQuery(api.users.getCurrentUser);
+  if (user === undefined || user === null) {
+    return <Skeleton className="h-9 w-24" />;
+  }
+  const href = user.role === "agent" ? "/agent" : "/onboarding";
+  return (
+    <Button size="sm" asChild className={className}>
+      <Link to={href}>Dashboard</Link>
+    </Button>
+  );
+}
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -55,24 +77,19 @@ export default function Header() {
             ))}
           </nav>
 
+          {/* Desktop auth buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                toast.info("Sign-in coming soon in a future milestone!")
-              }
-            >
-              Sign In
-            </Button>
-            <Button
-              size="sm"
-              onClick={() =>
-                toast.info("Registration coming soon in a future milestone!")
-              }
-            >
-              Get Started
-            </Button>
+            <AuthLoading>
+              <Skeleton className="h-9 w-20" />
+            </AuthLoading>
+            <Unauthenticated>
+              <SignInButton variant="ghost" size="sm" />
+              <SignInButton size="sm" signInText="Get Started" showIcon={false} />
+            </Unauthenticated>
+            <Authenticated>
+              <DashboardLink />
+              <SignInButton size="sm" variant="ghost" />
+            </Authenticated>
           </div>
 
           <button
@@ -109,26 +126,29 @@ export default function Header() {
                 </a>
               ))}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start"
-                  onClick={() =>
-                    toast.info("Sign-in coming soon in a future milestone!")
-                  }
-                >
-                  Sign In
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    toast.info(
-                      "Registration coming soon in a future milestone!",
-                    )
-                  }
-                >
-                  Get Started
-                </Button>
+                <AuthLoading>
+                  <Skeleton className="h-9 w-full" />
+                </AuthLoading>
+                <Unauthenticated>
+                  <SignInButton
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start"
+                  />
+                  <SignInButton
+                    size="sm"
+                    signInText="Get Started"
+                    showIcon={false}
+                  />
+                </Unauthenticated>
+                <Authenticated>
+                  <DashboardLink className="w-full" />
+                  <SignInButton
+                    size="sm"
+                    variant="ghost"
+                    className="justify-start"
+                  />
+                </Authenticated>
               </div>
             </nav>
           </motion.div>

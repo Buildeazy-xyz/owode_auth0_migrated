@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button.tsx";
 import { ArrowRight, Shield, Bell, Smartphone } from "lucide-react";
-import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth.ts";
 
 const HERO_IMAGE =
   "https://hercules-cdn.com/file_rY7fCH0Pwkhdv3CxSc00Mddc";
@@ -13,6 +13,8 @@ const MINI_STATS = [
 ];
 
 export default function HeroSection() {
+  const { signinRedirect } = useAuth();
+
   return (
     <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
       {/* Background decoration */}
@@ -65,9 +67,7 @@ export default function HeroSection() {
               <Button
                 size="lg"
                 className="gap-2"
-                onClick={() =>
-                  toast.info("Coming soon in a future milestone!")
-                }
+                onClick={() => signinRedirect()}
               >
                 {"I'm a Contributor"} <ArrowRight className="w-4 h-4" />
               </Button>
@@ -75,9 +75,7 @@ export default function HeroSection() {
                 size="lg"
                 variant="secondary"
                 className="gap-2"
-                onClick={() =>
-                  toast.info("Coming soon in a future milestone!")
-                }
+                onClick={() => signinRedirect()}
               >
                 {"I'm an Agent"} <Smartphone className="w-4 h-4" />
               </Button>

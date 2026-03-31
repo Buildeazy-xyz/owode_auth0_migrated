@@ -7,6 +7,7 @@ import AppLayout from "./components/AppLayout.tsx";
 import OnboardingPage from "./pages/onboarding/page.tsx";
 import AgentDashboard from "./pages/agent/page.tsx";
 import ContributorDashboard from "./pages/contributor/page.tsx";
+import AdminDashboard from "./pages/admin/page.tsx";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/agent" element={<AgentDashboard />} />
             <Route path="/contributor" element={<ContributorDashboard />} />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

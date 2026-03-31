@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
-import { ClipboardCheck, Wallet, ArrowLeft } from "lucide-react";
+import { ClipboardCheck, Wallet, ArrowLeft, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
 
@@ -30,7 +30,9 @@ function OnboardingContent() {
 
   // If user already has a role, redirect to appropriate dashboard
   useEffect(() => {
-    if (user?.role === "agent") {
+    if (user?.role === "admin") {
+      navigate("/admin", { replace: true });
+    } else if (user?.role === "agent") {
       navigate("/agent", { replace: true });
     } else if (user?.role === "contributor") {
       navigate("/contributor", { replace: true });
@@ -45,11 +47,12 @@ function OnboardingContent() {
     );
   }
 
-  const handleSelectAgent = async () => {
+  const handleSelectRole = async (role: "agent" | "admin") => {
     try {
-      await setRole({ role: "agent" });
-      toast.success("Welcome aboard, Agent!");
-      navigate("/agent", { replace: true });
+      await setRole({ role });
+      const label = role === "admin" ? "Admin" : "Agent";
+      toast.success(`Welcome aboard, ${label}!`);
+      navigate(role === "admin" ? "/admin" : "/agent", { replace: true });
     } catch {
       toast.error("Failed to set role. Please try again.");
     }
@@ -100,10 +103,27 @@ function OnboardingContent() {
         </div>
 
         {step === "choose" ? (
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-3 gap-4">
             <Card
               className="cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
-              onClick={handleSelectAgent}
+              onClick={() => handleSelectRole("admin")}
+            >
+              <CardContent className="pt-6 text-center space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+                  <ShieldCheck className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg">{"I'm an Admin"}</h3>
+                <p className="text-sm text-muted-foreground">
+                  I oversee agents, review collections, and manage the
+                  platform.
+                </p>
+                <Button className="w-full">Continue as Admin</Button>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
+              onClick={() => handleSelectRole("agent")}
             >
               <CardContent className="pt-6 text-center space-y-3">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
@@ -114,7 +134,9 @@ function OnboardingContent() {
                   I collect contributions from members and need to record them
                   digitally.
                 </p>
-                <Button className="w-full">Continue as Agent</Button>
+                <Button variant="secondary" className="w-full">
+                  Continue as Agent
+                </Button>
               </CardContent>
             </Card>
 
@@ -130,8 +152,8 @@ function OnboardingContent() {
                   {"I'm a Contributor"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  I make regular contributions and want to track my virtual card
-                  and payments.
+                  I make regular contributions and want to track my virtual
+                  card and payments.
                 </p>
                 <Button variant="secondary" className="w-full">
                   Continue as Contributor

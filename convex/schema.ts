@@ -48,8 +48,13 @@ export default defineSchema({
     /** Bank transfer reference / session ID from contributor's bank app */
     bankReference: v.optional(v.string()),
     note: v.optional(v.string()),
+    /** Admin who confirmed / disputed, and when */
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.string()),
+    reviewNote: v.optional(v.string()),
   })
     .index("by_agent_and_date", ["agentId", "collectedAt"])
     .index("by_contributor", ["contributorId"])
-    .index("by_reference", ["referenceNumber"]),
+    .index("by_reference", ["referenceNumber"])
+    .index("by_status", ["status"]),
 });

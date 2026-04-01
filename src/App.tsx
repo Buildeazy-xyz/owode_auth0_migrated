@@ -8,6 +8,7 @@ import OnboardingPage from "./pages/onboarding/page.tsx";
 import AgentDashboard from "./pages/agent/page.tsx";
 import ContributorDashboard from "./pages/contributor/page.tsx";
 import AdminDashboard from "./pages/admin/page.tsx";
+import AboutPage from "./pages/about/page.tsx";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           {/* Protected routes with shared layout */}

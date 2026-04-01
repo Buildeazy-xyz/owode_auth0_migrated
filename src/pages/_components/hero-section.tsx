@@ -7,9 +7,9 @@ const HERO_IMAGE =
   "https://hercules-cdn.com/file_rY7fCH0Pwkhdv3CxSc00Mddc";
 
 const MINI_STATS = [
-  { label: "Happy Users", value: "10,000+" },
-  { label: "Funds Managed", value: "₦2B+" },
-  { label: "Active Agents", value: "500+" },
+  { label: "Contributors", value: "400+" },
+  { label: "Funds Managed", value: "₦50M+" },
+  { label: "Active Agents", value: "20+" },
 ];
 
 export default function HeroSection() {
@@ -34,7 +34,7 @@ export default function HeroSection() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6"
             >
               <Shield className="w-4 h-4" />
-              OWODE Financial Group
+              OWODE Alajo — Your Money Is Safe
             </motion.div>
 
             <motion.h1
@@ -43,8 +43,8 @@ export default function HeroSection() {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="text-4xl sm:text-5xl lg:text-6xl font-bold font-serif tracking-tight leading-[1.1] text-balance"
             >
-              Your Money.{" "}
-              <span className="text-primary">Your Trust.</span> Our Technology.
+              Your Money Is{" "}
+              <span className="text-primary">Safe.</span> Always.
             </motion.h1>
 
             <motion.p
@@ -53,10 +53,10 @@ export default function HeroSection() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-xl"
             >
-              From grassroots thrift savings to wealth advisory, OWODE is
-              building Nigeria{"'"}s most trusted financial ecosystem. Every
-              collection recorded, every contributor alerted, every naira
-              accounted for.
+              OWODE Alajo replaces risky paper cards and manual ledgers with
+              real-time digital tracking. Every collection recorded, every
+              contributor alerted, every naira accounted for. Safety is not
+              a promise — it{"'"}s our system.
             </motion.p>
 
             <motion.div

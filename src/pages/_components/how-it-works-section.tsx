@@ -41,7 +41,7 @@ const CONTRIBUTOR_STEPS: Step[] = [
     icon: UserPlus,
     title: "Join Your Circle",
     description:
-      "Sign up with OWODE and get your digital contributor account linked to your agent.",
+      "Sign up with OWODE, get your digital contributor account, and receive your unique Providus virtual account for direct deposits.",
   },
   {
     icon: Eye,
@@ -107,7 +107,7 @@ export default function HowItWorksSection() {
           className="text-center max-w-2xl mx-auto mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight">
-            How OWODE Protects Your Money
+            How OWODE Keeps Your Money Safe
           </h2>
           <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
             A simple, transparent process for both agents and contributors.

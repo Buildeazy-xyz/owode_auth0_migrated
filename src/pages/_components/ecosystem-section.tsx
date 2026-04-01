@@ -22,7 +22,7 @@ const DIVISIONS: Division[] = [
     name: "OWODE Alajo",
     tagline: "Trusted Community Savings",
     description:
-      "Grassroots daily, weekly, and monthly thrift savings for traders, artisans, and the informal sector. Digital collection with real-time tracking.",
+      "Grassroots daily, weekly, and monthly thrift savings for traders, artisans, and the informal sector. Powered by Providus Bank virtual accounts for digital collection and real-time tracking.",
     status: "live",
   },
   {
@@ -46,7 +46,7 @@ const DIVISIONS: Division[] = [
     name: "OWODE Pay",
     tagline: "Simple Financial Transactions",
     description:
-      "Virtual accounts, automated collections, payment reconciliation, and wallet infrastructure powered by Providus Bank API.",
+      "Virtual accounts, automated collections, payment reconciliation, and wallet infrastructure powered by Providus Bank DCS API. Pay via transfer, POS, or USSD.",
     status: "coming",
   },
   {
@@ -74,12 +74,12 @@ export default function EcosystemSection() {
             The Ecosystem
           </p>
           <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight">
-            One Institution, Multiple Revenue Streams
+            One Institution, Multiple Services
           </h2>
           <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
-            OWODE Financial Group operates as a unified institution — from
-            grassroots savings to institutional advisory. Customers grow inside
-            the ecosystem.
+            OWODE Financial Group is a unified financial ecosystem — from
+            grassroots savings powered by Providus Bank virtual accounts, to
+            wealth advisory and structured credit. Customers grow with us.
           </p>
         </motion.div>
 

@@ -29,11 +29,12 @@ export default function ProblemSection() {
           className="text-center max-w-2xl mx-auto mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight">
-            Why Go Digital?
+            Why Your Money Needs OWODE
           </h2>
           <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
             Paper cards and manual ledgers leave room for fraud. One dishonest
-            agent can cost your contributors their hard-earned savings.
+            agent can cost your contributors their hard-earned savings. OWODE
+            was built to end that risk.
           </p>
         </motion.div>
 

@@ -1,9 +1,11 @@
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button.tsx";
 import { ArrowRight } from "lucide-react";
-import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth.ts";
 
 export default function CtaSection() {
+  const { signinRedirect } = useAuth();
+
   return (
     <section className="py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,32 +22,27 @@ export default function CtaSection() {
 
           <div className="relative">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif tracking-tight text-balance">
-              Ready to Join Nigeria{"'"}s Smartest Financial Ecosystem?
+              Your Money Deserves to Be Safe
             </h2>
             <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Whether you{"'"}re a trader saving daily with Ajo, a professional
-              seeking wealth advisory, or a business needing structured
-              credit — OWODE has a place for you. Start with savings, grow
-              into wealth.
+              Join 400+ contributors who have already moved from risky paper
+              cards to OWODE{"'"}s transparent digital system. Whether you{"'"}re
+              a trader, artisan, or rider — your money is safe with OWODE.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Button
                 size="lg"
                 className="gap-2"
-                onClick={() =>
-                  toast.info("Coming soon in a future milestone!")
-                }
+                onClick={() => signinRedirect()}
               >
                 Get Started Free <ArrowRight className="w-4 h-4" />
               </Button>
               <Button
                 size="lg"
                 variant="secondary"
-                onClick={() =>
-                  toast.info("Coming soon in a future milestone!")
-                }
+                onClick={() => signinRedirect()}
               >
-                Talk to Our Team
+                {"I'm an Agent"}
               </Button>
             </div>
             <p className="mt-6 text-sm text-muted-foreground">

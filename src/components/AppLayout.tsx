@@ -20,16 +20,16 @@ export default function AppLayout() {
       </AuthLoading>
       <Unauthenticated>
         <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-2xl font-serif">
-              O
-            </span>
-          </div>
+          <img
+            src="https://hercules-cdn.com/file_MvdcHn3Luis6KlyAOhCjHtE8"
+            alt="OWODE Financial Group"
+            className="h-14 w-auto"
+          />
           <h1 className="text-2xl font-bold font-serif">
             Sign in to continue
           </h1>
           <p className="text-muted-foreground text-sm">
-            You need to be signed in to access this page.
+            You need to be signed in to access OWODE.
           </p>
           <SignInButton />
         </div>
@@ -51,15 +51,12 @@ function AppNav() {
     <nav className="border-b border-border bg-card sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm font-serif">
-                O
-              </span>
-            </div>
-            <span className="font-serif text-lg font-bold tracking-tight">
-              OWODE
-            </span>
+          <Link to="/" className="flex items-center gap-2">
+            <img
+              src="https://hercules-cdn.com/file_MvdcHn3Luis6KlyAOhCjHtE8"
+              alt="OWODE Financial Group"
+              className="h-9 w-auto"
+            />
           </Link>
 
           <div className="flex items-center gap-4">

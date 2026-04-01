@@ -41,9 +41,9 @@ export default function Footer() {
               />
             </Link>
             <p className="mt-4 text-sm text-white/50 leading-relaxed max-w-xs">
-              Trust + Structure + Intelligence. From grassroots savings to
-              wealth advisory, OWODE is building Nigeria{"'"}s most trusted
-              financial ecosystem.
+              Your Money Is Safe. OWODE Alajo digitizes the 954-year
+              tradition of Ajo with modern technology, transparency, and
+              trust.
             </p>
           </div>
 

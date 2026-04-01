@@ -15,9 +15,9 @@ import { SignInButton } from "@/components/ui/signin.tsx";
 
 const NAV_LINKS = [
   { label: "How It Works", href: "#how-it-works" },
+  { label: "Ecosystem", href: "#ecosystem" },
   { label: "Features", href: "#features" },
-  { label: "For Agents", href: "#for-agents" },
-  { label: "For Contributors", href: "#for-contributors" },
+  { label: "About", href: "/about" },
 ];
 
 /** Resolves the correct dashboard URL based on the user's role */
@@ -70,15 +70,25 @@ export default function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
+            {NAV_LINKS.map((link) =>
+              link.href.startsWith("/") ? (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {link.label}
+                </a>
+              ),
+            )}
           </nav>
 
           {/* Desktop auth buttons */}
@@ -119,16 +129,27 @@ export default function Header() {
             className="md:hidden bg-background/95 backdrop-blur-md border-b border-border overflow-hidden"
           >
             <nav className="px-4 py-4 space-y-1">
-              {NAV_LINKS.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {link.label}
-                </a>
-              ))}
+              {NAV_LINKS.map((link) =>
+                link.href.startsWith("/") ? (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                ),
+              )}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <AuthLoading>
                   <Skeleton className="h-9 w-full" />

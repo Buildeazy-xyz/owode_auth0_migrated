@@ -20,12 +20,13 @@ export default function CtaSection() {
 
           <div className="relative">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif tracking-tight text-balance">
-              Ready to Secure Your Contributions?
+              Ready to Join Nigeria{"'"}s Smartest Financial Ecosystem?
             </h2>
             <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Join thousands of Nigerians who have already moved from risky
-              paper cards to OWODE{"'"}s transparent digital system. Your money
-              deserves better protection.
+              Whether you{"'"}re a trader saving daily with Ajo, a professional
+              seeking wealth advisory, or a business needing structured
+              credit — OWODE has a place for you. Start with savings, grow
+              into wealth.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Button

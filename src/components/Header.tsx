@@ -61,15 +61,12 @@ export default function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg font-serif">
-                O
-              </span>
-            </div>
-            <span className="font-serif text-xl font-bold tracking-tight">
-              OWODE
-            </span>
+          <Link to="/" className="flex items-center gap-2">
+            <img
+              src="https://hercules-cdn.com/file_MvdcHn3Luis6KlyAOhCjHtE8"
+              alt="OWODE Financial Group"
+              className="h-10 w-auto"
+            />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">

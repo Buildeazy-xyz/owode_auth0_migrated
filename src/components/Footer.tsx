@@ -13,8 +13,8 @@ const FOOTER_LINKS = [
   {
     title: "Company",
     links: [
-      { label: "About Us", href: "https://owodealajo.com" },
-      { label: "Contact", href: "https://owodealajo.com/contact" },
+      { label: "About Us", href: "/about" },
+      { label: "Contact", href: "/contact" },
     ],
   },
   {
@@ -33,19 +33,17 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
-            <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-                <span className="text-white font-bold text-lg font-serif">
-                  O
-                </span>
-              </div>
-              <span className="font-serif text-xl font-bold tracking-tight text-white">
-                OWODE
-              </span>
+            <Link to="/" className="flex items-center gap-2">
+              <img
+                src="https://hercules-cdn.com/file_MvdcHn3Luis6KlyAOhCjHtE8"
+                alt="OWODE Financial Group"
+                className="h-10 w-auto brightness-0 invert"
+              />
             </Link>
             <p className="mt-4 text-sm text-white/50 leading-relaxed max-w-xs">
-              Powering the 954-year tradition of Ajo with modern technology.
-              Your money is safe, your trust is earned.
+              Trust + Structure + Intelligence. From grassroots savings to
+              wealth advisory, OWODE is building Nigeria{"'"}s most trusted
+              financial ecosystem.
             </p>
           </div>
 
@@ -57,12 +55,21 @@ export default function Footer() {
               <ul className="space-y-3">
                 {section.links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
-                      className="text-sm text-white/40 hover:text-white/80 transition-colors"
-                    >
-                      {link.label}
-                    </a>
+                    {link.href.startsWith("/") ? (
+                      <Link
+                        to={link.href}
+                        className="text-sm text-white/40 hover:text-white/80 transition-colors"
+                      >
+                        {link.label}
+                      </Link>
+                    ) : (
+                      <a
+                        href={link.href}
+                        className="text-sm text-white/40 hover:text-white/80 transition-colors"
+                      >
+                        {link.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -73,7 +80,7 @@ export default function Footer() {
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-white/30">
             {"© "}
-            {new Date().getFullYear()} OWODE Digital Services Limited. All
+            {new Date().getFullYear()} OWODE Financial Group. All
             rights reserved.
           </p>
           <p className="text-sm text-white/30">Made in Nigeria with purpose.</p>

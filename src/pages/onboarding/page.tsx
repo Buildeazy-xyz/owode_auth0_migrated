@@ -19,7 +19,6 @@ import {
   ClipboardCheck,
   Wallet,
   ArrowLeft,
-  ShieldCheck,
   Upload,
   FileCheck,
   User,
@@ -82,16 +81,6 @@ function OnboardingContent() {
   }
 
   // ─── Handlers ───────────────────────────────────────────────────
-
-  const handleSelectAdmin = async () => {
-    try {
-      await setRole({ role: "admin" });
-      toast.success("Welcome aboard, Admin!");
-      navigate("/admin", { replace: true });
-    } catch {
-      toast.error("Failed to set role. Please try again.");
-    }
-  };
 
   const handleClaimContributor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,25 +188,9 @@ function OnboardingContent() {
           </p>
         </div>
 
-        {/* Role selection */}
+        {/* Role selection — only Agent and Contributor (admin is assigned by super admin) */}
         {step === "choose" && (
-          <div className="grid sm:grid-cols-3 gap-4">
-            <Card
-              className="cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
-              onClick={handleSelectAdmin}
-            >
-              <CardContent className="pt-6 text-center space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
-                  <ShieldCheck className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg">{"I'm an Admin"}</h3>
-                <p className="text-sm text-muted-foreground">
-                  I oversee agents, review collections, and manage the platform.
-                </p>
-                <Button className="w-full">Continue as Admin</Button>
-              </CardContent>
-            </Card>
-
+          <div className="grid sm:grid-cols-2 gap-4 max-w-lg mx-auto">
             <Card
               className="cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
               onClick={() => setStep("agent-details")}

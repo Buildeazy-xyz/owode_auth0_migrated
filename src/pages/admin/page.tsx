@@ -4,11 +4,12 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
-import { ShieldCheck, Users, ClipboardList, UserCheck } from "lucide-react";
+import { ShieldCheck, Users, ClipboardList, UserCheck, Crown } from "lucide-react";
 import PlatformStats from "./_components/platform-stats.tsx";
 import AgentList from "./_components/agent-list.tsx";
 import CollectionsTable from "./_components/collections-table.tsx";
 import VerificationQueue from "./_components/verification-queue.tsx";
+import UserManagement from "./_components/user-management.tsx";
 
 export default function AdminDashboard() {
   const user = useQuery(api.users.getCurrentUser);
@@ -29,6 +30,8 @@ export default function AdminDashboard() {
     );
   }
 
+  const isSuperAdmin = user.isSuperAdmin === true;
+
   return (
     <div className="space-y-8">
       {/* Page header */}
@@ -40,6 +43,12 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold font-serif">Admin Dashboard</h1>
           <p className="text-muted-foreground text-sm">
             Platform oversight & reconciliation
+            {isSuperAdmin && (
+              <span className="ml-2 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                <Crown className="w-3 h-3" />
+                Super Admin
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -47,7 +56,7 @@ export default function AdminDashboard() {
       {/* Platform overview */}
       <PlatformStats />
 
-      {/* Tabs for verifications, collections, agents */}
+      {/* Tabs for verifications, collections, agents, (users for super admin) */}
       <Tabs defaultValue="verifications" className="w-full">
         <TabsList>
           <TabsTrigger value="verifications" className="gap-1.5">
@@ -62,6 +71,12 @@ export default function AdminDashboard() {
             <Users className="w-4 h-4" />
             Agents
           </TabsTrigger>
+          {isSuperAdmin && (
+            <TabsTrigger value="users" className="gap-1.5">
+              <Crown className="w-4 h-4" />
+              Users
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="verifications" className="mt-4">
           <VerificationQueue />
@@ -72,6 +87,11 @@ export default function AdminDashboard() {
         <TabsContent value="agents" className="mt-4">
           <AgentList />
         </TabsContent>
+        {isSuperAdmin && (
+          <TabsContent value="users" className="mt-4">
+            <UserManagement />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

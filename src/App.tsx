@@ -9,6 +9,7 @@ import AgentDashboard from "./pages/agent/page.tsx";
 import ContributorDashboard from "./pages/contributor/page.tsx";
 import AdminDashboard from "./pages/admin/page.tsx";
 import AboutPage from "./pages/about/page.tsx";
+import FaqPage from "./pages/faq/page.tsx";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/faq" element={<FaqPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           {/* Protected routes with shared layout */}

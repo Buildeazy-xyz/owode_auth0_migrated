@@ -18,6 +18,7 @@ const NAV_LINKS = [
   { label: "Ecosystem", href: "#ecosystem" },
   { label: "Features", href: "#features" },
   { label: "About", href: "/about" },
+  { label: "FAQ", href: "/faq" },
 ];
 
 /** Resolves the correct dashboard URL based on the user's role */

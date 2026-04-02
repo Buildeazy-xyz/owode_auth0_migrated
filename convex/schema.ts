@@ -16,7 +16,38 @@ export default defineSchema({
     phone: v.optional(v.string()),
     /** Links a contributor-role user to their contributor record */
     contributorId: v.optional(v.id("contributors")),
+    /** Agent approval status — only relevant when role === "agent" */
+    agentStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("under_review"),
+        v.literal("approved"),
+        v.literal("rejected"),
+      ),
+    ),
   }).index("by_token", ["tokenIdentifier"]),
+
+  /** Agent verification applications */
+  agent_verifications: defineTable({
+    userId: v.id("users"),
+    phone: v.string(),
+    /** Convex storage ID for the government-issued ID document */
+    govIdStorageId: v.id("_storage"),
+    guarantorName: v.string(),
+    guarantorPhone: v.string(),
+    guarantorAddress: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("under_review"),
+      v.literal("approved"),
+      v.literal("rejected"),
+    ),
+    submittedAt: v.string(),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.string()),
+    rejectionReason: v.optional(v.string()),
+  }).index("by_user", ["userId"])
+    .index("by_status", ["status"]),
 
   contributors: defineTable({
     name: v.string(),

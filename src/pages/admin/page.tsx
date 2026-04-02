@@ -4,10 +4,11 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
-import { ShieldCheck, Users, ClipboardList } from "lucide-react";
+import { ShieldCheck, Users, ClipboardList, UserCheck } from "lucide-react";
 import PlatformStats from "./_components/platform-stats.tsx";
 import AgentList from "./_components/agent-list.tsx";
 import CollectionsTable from "./_components/collections-table.tsx";
+import VerificationQueue from "./_components/verification-queue.tsx";
 
 export default function AdminDashboard() {
   const user = useQuery(api.users.getCurrentUser);
@@ -46,9 +47,13 @@ export default function AdminDashboard() {
       {/* Platform overview */}
       <PlatformStats />
 
-      {/* Tabs for agents vs collections */}
-      <Tabs defaultValue="collections" className="w-full">
+      {/* Tabs for verifications, collections, agents */}
+      <Tabs defaultValue="verifications" className="w-full">
         <TabsList>
+          <TabsTrigger value="verifications" className="gap-1.5">
+            <UserCheck className="w-4 h-4" />
+            Verifications
+          </TabsTrigger>
           <TabsTrigger value="collections" className="gap-1.5">
             <ClipboardList className="w-4 h-4" />
             Collections
@@ -58,6 +63,9 @@ export default function AdminDashboard() {
             Agents
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="verifications" className="mt-4">
+          <VerificationQueue />
+        </TabsContent>
         <TabsContent value="collections" className="mt-4">
           <CollectionsTable />
         </TabsContent>

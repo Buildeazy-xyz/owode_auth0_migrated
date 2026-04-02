@@ -50,12 +50,20 @@ export default function ContributorDashboard() {
       {/* Virtual thrift card */}
       {cardSummary && (
         <VirtualCard
+          frequency={cardSummary.frequency}
+          contributionAmount={cardSummary.contributionAmount}
           daysInMonth={cardSummary.daysInMonth}
           currentDay={cardSummary.currentDay}
           paidDays={cardSummary.paidDays}
-          dailyAmount={cardSummary.dailyAmount}
-          monthTotal={cardSummary.monthTotal}
-          monthTarget={cardSummary.monthTarget}
+          periodTotal={cardSummary.periodTotal}
+          periodTarget={cardSummary.periodTarget}
+          paidWeeks={cardSummary.paidWeeks ?? undefined}
+          weeksInPeriod={cardSummary.weeksInPeriod ?? undefined}
+          currentWeek={cardSummary.currentWeek ?? undefined}
+          weeklyDay={cardSummary.weeklyDay ?? undefined}
+          paidMonths={cardSummary.paidMonths ?? undefined}
+          currentMonth={cardSummary.currentMonth ?? undefined}
+          monthlyDay={cardSummary.monthlyDay ?? undefined}
         />
       )}
 

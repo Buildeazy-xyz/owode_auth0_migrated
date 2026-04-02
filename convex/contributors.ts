@@ -2,12 +2,37 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel.d.ts";
 
+/** Frequency type used across the codebase */
+type Frequency = "daily" | "weekly" | "monthly";
+
+/** Labels for each frequency */
+const FREQUENCY_LABELS: Record<Frequency, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+};
+
+/** Short period label for UI (e.g. "/day", "/week", "/month") */
+export const FREQUENCY_PERIOD: Record<Frequency, string> = {
+  daily: "/day",
+  weekly: "/week",
+  monthly: "/month",
+};
+
 export const add = mutation({
   args: {
     name: v.string(),
     phone: v.string(),
     email: v.optional(v.string()),
     dailyAmount: v.number(),
+    frequency: v.union(
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
+    weeklyDay: v.optional(v.number()),
+    monthlyDay: v.optional(v.number()),
+    startDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -30,12 +55,30 @@ export const add = mutation({
       });
     }
 
+    // Validate frequency-specific fields
+    if (args.frequency === "weekly" && args.weeklyDay === undefined) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Please select a collection day for weekly contributions",
+      });
+    }
+    if (args.frequency === "monthly" && args.monthlyDay === undefined) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Please select a collection day for monthly contributions",
+      });
+    }
+
     return await ctx.db.insert("contributors", {
       name: args.name,
       phone: args.phone,
       email: args.email,
       agentId: user._id,
       dailyAmount: args.dailyAmount,
+      frequency: args.frequency,
+      weeklyDay: args.frequency === "weekly" ? args.weeklyDay : undefined,
+      monthlyDay: args.frequency === "monthly" ? args.monthlyDay : undefined,
+      startDate: args.startDate ?? new Date().toISOString(),
       status: "active",
     });
   },
@@ -86,6 +129,15 @@ export const update = mutation({
     name: v.optional(v.string()),
     phone: v.optional(v.string()),
     dailyAmount: v.optional(v.number()),
+    frequency: v.optional(
+      v.union(
+        v.literal("daily"),
+        v.literal("weekly"),
+        v.literal("monthly"),
+      ),
+    ),
+    weeklyDay: v.optional(v.number()),
+    monthlyDay: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<Id<"contributors">> => {
     const identity = await ctx.auth.getUserIdentity();
@@ -116,10 +168,25 @@ export const update = mutation({
       });
     }
 
-    const updates: Record<string, string | number> = {};
+    const updates: Record<string, string | number | undefined> = {};
     if (args.name !== undefined) updates.name = args.name;
     if (args.phone !== undefined) updates.phone = args.phone;
     if (args.dailyAmount !== undefined) updates.dailyAmount = args.dailyAmount;
+
+    // Handle frequency change
+    if (args.frequency !== undefined) {
+      updates.frequency = args.frequency;
+      if (args.frequency === "weekly") {
+        updates.weeklyDay = args.weeklyDay;
+        updates.monthlyDay = undefined;
+      } else if (args.frequency === "monthly") {
+        updates.monthlyDay = args.monthlyDay;
+        updates.weeklyDay = undefined;
+      } else {
+        updates.weeklyDay = undefined;
+        updates.monthlyDay = undefined;
+      }
+    }
 
     await ctx.db.patch(args.contributorId, updates);
     return args.contributorId;

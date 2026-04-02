@@ -4,6 +4,14 @@ import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Banknote, CalendarCheck, TrendingUp, Target } from "lucide-react";
 
+type Frequency = "daily" | "weekly" | "monthly";
+
+const PERIOD_LABELS: Record<Frequency, string> = {
+  daily: "This Month",
+  weekly: "This Month",
+  monthly: "This Year",
+};
+
 export default function ContributorStats() {
   const card = useQuery(api.collections.getMyCardSummary);
 
@@ -17,6 +25,8 @@ export default function ContributorStats() {
     );
   }
 
+  const freq: Frequency = card.frequency ?? "daily";
+
   const stats = [
     {
       label: "Total Saved",
@@ -26,22 +36,22 @@ export default function ContributorStats() {
       bg: "bg-primary/10",
     },
     {
-      label: "Days Paid",
-      value: `${card.daysPaid}/${card.daysInMonth}`,
+      label: "Periods Paid",
+      value: `${card.daysPaid}/${freq === "daily" ? card.daysInMonth : freq === "weekly" ? (card.weeksInPeriod ?? 4) : 12}`,
       icon: CalendarCheck,
       color: "text-green-600 dark:text-green-400",
       bg: "bg-green-100 dark:bg-green-900/20",
     },
     {
-      label: "This Month",
-      value: `₦${card.monthTotal.toLocaleString()}`,
+      label: PERIOD_LABELS[freq],
+      value: `₦${card.periodTotal.toLocaleString()}`,
       icon: TrendingUp,
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-100 dark:bg-blue-900/20",
     },
     {
-      label: "Monthly Target",
-      value: `₦${card.monthTarget.toLocaleString()}`,
+      label: `${freq === "monthly" ? "Yearly" : "Monthly"} Target`,
+      value: `₦${card.periodTarget.toLocaleString()}`,
       icon: Target,
       color: "text-chart-3",
       bg: "bg-chart-3/10",

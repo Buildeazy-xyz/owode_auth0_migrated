@@ -55,6 +55,20 @@ export default defineSchema({
     email: v.optional(v.string()),
     agentId: v.id("users"),
     dailyAmount: v.number(),
+    /** Contribution frequency: daily (default), weekly, or monthly. Optional for backward compat */
+    frequency: v.optional(
+      v.union(
+        v.literal("daily"),
+        v.literal("weekly"),
+        v.literal("monthly"),
+      ),
+    ),
+    /** Which day of the week contributions are due (0=Sun..6=Sat). Only used when frequency=weekly */
+    weeklyDay: v.optional(v.number()),
+    /** Which day of the month contributions are due (1-28). Only used when frequency=monthly */
+    monthlyDay: v.optional(v.number()),
+    /** When the contribution plan started */
+    startDate: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("inactive")),
     userId: v.optional(v.id("users")),
   })

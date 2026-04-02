@@ -26,6 +26,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx";
+import {
   Empty,
   EmptyHeader,
   EmptyMedia,
@@ -40,10 +47,43 @@ import {
   ToggleLeft,
   ToggleRight,
   Phone,
+  CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
 import AddContributorDialog from "./add-contributor-dialog.tsx";
+
+type Frequency = "daily" | "weekly" | "monthly";
+
+const FREQUENCY_LABELS: Record<Frequency, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+};
+
+const FREQUENCY_PERIOD: Record<Frequency, string> = {
+  daily: "/day",
+  weekly: "/week",
+  monthly: "/month",
+};
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const WEEKDAYS_FULL = [
+  { value: "0", label: "Sunday" },
+  { value: "1", label: "Monday" },
+  { value: "2", label: "Tuesday" },
+  { value: "3", label: "Wednesday" },
+  { value: "4", label: "Thursday" },
+  { value: "5", label: "Friday" },
+  { value: "6", label: "Saturday" },
+];
+
+function getOrdinalSuffix(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+}
 
 export default function ContributorList() {
   const contributors = useQuery(api.contributors.listByAgent);
@@ -111,6 +151,7 @@ function ContributorRow({
 }) {
   const toggleStatus = useMutation(api.contributors.toggleStatus);
   const [toggling, setToggling] = useState(false);
+  const freq: Frequency = (contributor.frequency as Frequency) ?? "daily";
 
   const handleToggle = async () => {
     setToggling(true);
@@ -133,18 +174,32 @@ function ContributorRow({
     }
   };
 
+  // Build schedule description
+  let scheduleInfo = "";
+  if (freq === "weekly" && contributor.weeklyDay !== undefined) {
+    scheduleInfo = ` (${WEEKDAY_LABELS[contributor.weeklyDay]})`;
+  } else if (freq === "monthly" && contributor.monthlyDay !== undefined) {
+    scheduleInfo = ` (${contributor.monthlyDay}${getOrdinalSuffix(contributor.monthlyDay)})`;
+  }
+
   return (
     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
       <div className="min-w-0">
         <p className="font-medium text-sm truncate">{contributor.name}</p>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Phone className="w-3 h-3" />
-          {contributor.phone}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Phone className="w-3 h-3" />
+            {contributor.phone}
+          </span>
+          <span className="flex items-center gap-1">
+            <CalendarClock className="w-3 h-3" />
+            {FREQUENCY_LABELS[freq]}{scheduleInfo}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <span className="text-sm font-medium hidden sm:block">
-          ₦{contributor.dailyAmount.toLocaleString()}/day
+          ₦{contributor.dailyAmount.toLocaleString()}{FREQUENCY_PERIOD[freq]}
         </span>
         <Badge
           variant={contributor.status === "active" ? "default" : "secondary"}
@@ -192,10 +247,16 @@ function EditContributorDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const freq: Frequency = (contributor.frequency as Frequency) ?? "daily";
   const [name, setName] = useState(contributor.name);
   const [phone, setPhone] = useState(contributor.phone);
-  const [dailyAmount, setDailyAmount] = useState(
-    contributor.dailyAmount.toString(),
+  const [amount, setAmount] = useState(contributor.dailyAmount.toString());
+  const [frequency, setFrequency] = useState<Frequency>(freq);
+  const [weeklyDay, setWeeklyDay] = useState(
+    (contributor.weeklyDay ?? 1).toString(),
+  );
+  const [monthlyDay, setMonthlyDay] = useState(
+    (contributor.monthlyDay ?? 1).toString(),
   );
   const [loading, setLoading] = useState(false);
 
@@ -203,7 +264,7 @@ function EditContributorDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone || !dailyAmount) {
+    if (!name || !phone || !amount) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -214,7 +275,10 @@ function EditContributorDialog({
         contributorId: contributor._id,
         name,
         phone,
-        dailyAmount: Number(dailyAmount),
+        dailyAmount: Number(amount),
+        frequency,
+        weeklyDay: frequency === "weekly" ? Number(weeklyDay) : undefined,
+        monthlyDay: frequency === "monthly" ? Number(monthlyDay) : undefined,
       });
       toast.success("Contributor updated");
       onClose();
@@ -229,6 +293,13 @@ function EditContributorDialog({
       setLoading(false);
     }
   };
+
+  const amountLabel =
+    frequency === "daily"
+      ? "Daily Amount"
+      : frequency === "weekly"
+        ? "Weekly Amount"
+        : "Monthly Amount";
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -255,13 +326,77 @@ function EditContributorDialog({
               required
             />
           </div>
+
+          {/* Frequency selector */}
           <div className="space-y-2">
-            <Label htmlFor="edit-amount">Daily Contribution (₦)</Label>
+            <Label className="flex items-center gap-1.5">
+              <CalendarClock className="w-3.5 h-3.5" />
+              Frequency
+            </Label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["daily", "weekly", "monthly"] as Frequency[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFrequency(f)}
+                  className={`rounded-lg border-2 py-2 px-3 text-sm font-medium transition-all ${
+                    frequency === f
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-muted-foreground hover:border-muted-foreground/30"
+                  }`}
+                >
+                  {FREQUENCY_LABELS[f]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {frequency === "weekly" && (
+            <div className="space-y-2">
+              <Label>Collection Day</Label>
+              <Select value={weeklyDay} onValueChange={setWeeklyDay}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select day" />
+                </SelectTrigger>
+                <SelectContent>
+                  {WEEKDAYS_FULL.map((day) => (
+                    <SelectItem key={day.value} value={day.value}>
+                      {day.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {frequency === "monthly" && (
+            <div className="space-y-2">
+              <Label>Day of Month</Label>
+              <Select value={monthlyDay} onValueChange={setMonthlyDay}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select day" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 28 }, (_, i) => {
+                    const day = (i + 1).toString();
+                    return (
+                      <SelectItem key={day} value={day}>
+                        {i + 1}{getOrdinalSuffix(i + 1)}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-amount">{amountLabel} (₦)</Label>
             <Input
               id="edit-amount"
               type="number"
-              value={dailyAmount}
-              onChange={(e) => setDailyAmount(e.target.value)}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
               required
               min="1"
             />

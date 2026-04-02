@@ -62,6 +62,21 @@ export default function RecordCollectionDialog() {
     }
   };
 
+  const selectedContributor = activeContributors.find(
+    (c) => c._id === contributorId,
+  );
+  const freq = (selectedContributor?.frequency ?? "daily") as "daily" | "weekly" | "monthly";
+  const freqLabel: Record<string, string> = {
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
+  };
+  const freqPeriod: Record<string, string> = {
+    daily: "/day",
+    weekly: "/week",
+    monthly: "/month",
+  };
+
   const resetForm = () => {
     setContributorId("");
     setAmount("");
@@ -168,11 +183,15 @@ export default function RecordCollectionDialog() {
                     <SelectValue placeholder="Select contributor" />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeContributors.map((c) => (
-                      <SelectItem key={c._id} value={c._id}>
-                        {c.name} (₦{c.dailyAmount.toLocaleString()}/day)
-                      </SelectItem>
-                    ))}
+                    {activeContributors.map((c) => {
+                      const f = (c.frequency ?? "daily") as "daily" | "weekly" | "monthly";
+                      const period = freqPeriod[f] ?? "/day";
+                      return (
+                        <SelectItem key={c._id} value={c._id}>
+                          {c.name} (₦{c.dailyAmount.toLocaleString()}{period})
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 {activeContributors.length === 0 && (
@@ -224,6 +243,11 @@ export default function RecordCollectionDialog() {
                   required
                   min="1"
                 />
+                {selectedContributor && (
+                  <p className="text-xs text-muted-foreground">
+                    {freqLabel[freq]} contribution: ₦{selectedContributor.dailyAmount.toLocaleString()}{freqPeriod[freq]}
+                  </p>
+                )}
               </div>
 
               {/* Bank reference field — only visible for transfers */}

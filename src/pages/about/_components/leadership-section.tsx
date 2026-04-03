@@ -30,7 +30,7 @@ const TEAM = [
     name: "Adewale Qozeem",
     role: "Assistant Technology Officer",
     description: "Supports digital systems and platform development.",
-    photo: null,
+    photo: "https://hercules-cdn.com/file_LbS8qtsrWJNX93UHOkvZG1K9",
   },
 ];
 

@@ -115,8 +115,14 @@ export default function Header() {
             </Authenticated>
           </div>
 
+          <div className="md:hidden flex items-center gap-1">
+            {canInstall && (
+              <Button size="icon" variant="secondary" onClick={install} className="h-9 w-9">
+                <Download className="w-4 h-4" />
+              </Button>
+            )}
           <button
-            className="md:hidden p-2 text-foreground"
+            className="p-2 text-foreground"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -126,8 +132,8 @@ export default function Header() {
               <Menu className="w-5 h-5" />
             )}
           </button>
+          </div>
         </div>
-      </div>
 
       <AnimatePresence>
         {mobileMenuOpen && (
@@ -160,12 +166,6 @@ export default function Header() {
                 ),
               )}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                {canInstall && (
-                  <Button size="sm" variant="secondary" onClick={install} className="gap-1.5 justify-start">
-                    <Download className="w-4 h-4" />
-                    Install App
-                  </Button>
-                )}
                 <AuthLoading>
                   <Skeleton className="h-9 w-full" />
                 </AuthLoading>

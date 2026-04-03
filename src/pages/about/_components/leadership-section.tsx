@@ -87,7 +87,7 @@ function TeamCard({
       className="bg-card border border-border rounded-2xl overflow-hidden"
     >
       {/* Photo */}
-      <div className="aspect-[4/3] bg-gradient-to-br from-primary/5 to-primary/15 flex items-center justify-center overflow-hidden">
+      <div className={`aspect-[4/3] flex items-center justify-center overflow-hidden ${member.photo ? "bg-white" : "bg-gradient-to-br from-primary/5 to-primary/15"}`}>
         {member.photo ? (
           <img
             src={member.photo}

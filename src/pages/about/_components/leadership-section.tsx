@@ -6,26 +6,31 @@ const TEAM = [
     name: "Olusegun Oyero Olurin",
     role: "Chief Vision Officer / Chief Technology Officer",
     description: "Provides direction, strategy, and long-term vision.",
+    photo: "https://hercules-cdn.com/file_sD40vPj2ewtLu5zgst3TnWkt",
   },
   {
     name: "Itunu-Oluwa Olurin",
     role: "Chief Executive Officer",
     description: "Leads operations and ensures excellent service delivery.",
+    photo: null,
   },
   {
     name: "Mary Oladuni Abiona",
     role: "Operations Manager",
     description: "Oversees daily activities and customer experience.",
+    photo: null,
   },
   {
     name: "Aminat Tolani Iyiola",
     role: "Assistant Administration Manager",
     description: "Supports coordination and administrative systems.",
+    photo: null,
   },
   {
     name: "Adewale Qozeem",
     role: "Assistant Technology Officer",
     description: "Supports digital systems and platform development.",
+    photo: null,
   },
 ];
 
@@ -81,11 +86,19 @@ function TeamCard({
       transition={{ duration: 0.4, delay }}
       className="bg-card border border-border rounded-2xl overflow-hidden"
     >
-      {/* Photo placeholder */}
-      <div className="aspect-[4/3] bg-gradient-to-br from-primary/5 to-primary/15 flex items-center justify-center">
-        <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
-          <User className="w-8 h-8 text-primary/40" />
-        </div>
+      {/* Photo */}
+      <div className="aspect-[4/3] bg-gradient-to-br from-primary/5 to-primary/15 flex items-center justify-center overflow-hidden">
+        {member.photo ? (
+          <img
+            src={member.photo}
+            alt={member.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
+            <User className="w-8 h-8 text-primary/40" />
+          </div>
+        )}
       </div>
 
       <div className="p-5 text-center">

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
+import { PhoneInput } from "@/components/ui/phone-input.tsx";
 
 type Step =
   | "choose"
@@ -49,13 +50,13 @@ function OnboardingContent() {
   const [loading, setLoading] = useState(false);
 
   // Contributor claim
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("+234");
 
   // Agent registration fields
-  const [agentPhone, setAgentPhone] = useState("");
+  const [agentPhone, setAgentPhone] = useState("+234");
   const [idFile, setIdFile] = useState<File | null>(null);
   const [guarantorName, setGuarantorName] = useState("");
-  const [guarantorPhone, setGuarantorPhone] = useState("");
+  const [guarantorPhone, setGuarantorPhone] = useState("+234");
   const [guarantorAddress, setGuarantorAddress] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -239,11 +240,10 @@ function OnboardingContent() {
             <form onSubmit={handleClaimContributor} className="space-y-4">
               <div className="space-y-2 text-left">
                 <Label htmlFor="claim-phone">Phone Number</Label>
-                <Input
+                <PhoneInput
                   id="claim-phone"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="08012345678"
+                  onChange={setPhone}
                   required
                   autoFocus
                 />
@@ -268,11 +268,10 @@ function OnboardingContent() {
                   <Phone className="w-4 h-4" />
                   Phone Number
                 </Label>
-                <Input
+                <PhoneInput
                   id="agent-phone"
                   value={agentPhone}
-                  onChange={(e) => setAgentPhone(e.target.value)}
-                  placeholder="08012345678"
+                  onChange={setAgentPhone}
                   required
                   autoFocus
                 />
@@ -367,11 +366,10 @@ function OnboardingContent() {
                   <Phone className="w-4 h-4" />
                   Guarantor Phone
                 </Label>
-                <Input
+                <PhoneInput
                   id="g-phone"
                   value={guarantorPhone}
-                  onChange={(e) => setGuarantorPhone(e.target.value)}
-                  placeholder="08012345678"
+                  onChange={setGuarantorPhone}
                   required
                 />
               </div>

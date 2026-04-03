@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.tsx";
 import { UserPlus, CalendarClock, Mail } from "lucide-react";
+import { PhoneInput } from "@/components/ui/phone-input.tsx";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
 
@@ -43,7 +44,7 @@ const WEEKDAYS = [
 export default function AddContributorDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("+234");
   const [email, setEmail] = useState("");
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("daily");
@@ -55,7 +56,7 @@ export default function AddContributorDialog() {
 
   const resetForm = () => {
     setName("");
-    setPhone("");
+    setPhone("+234");
     setEmail("");
     setAmount("");
     setFrequency("daily");
@@ -126,11 +127,10 @@ export default function AddContributorDialog() {
 
           <div className="space-y-2">
             <Label htmlFor="contributor-phone">Phone Number</Label>
-            <Input
+            <PhoneInput
               id="contributor-phone"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="08012345678"
+              onChange={setPhone}
               required
             />
           </div>

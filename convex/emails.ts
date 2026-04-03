@@ -11,7 +11,7 @@ const hercules = new Hercules({
 });
 
 /** The verified sender email — user must verify this in Hercules Emails tab */
-const SENDER_EMAIL = "no-reply@owodedigital.com";
+const SENDER_EMAIL = "info@owodealajo.com";
 
 /** Notify an agent that their verification was approved */
 export const sendAgentApprovalEmail = internalAction({

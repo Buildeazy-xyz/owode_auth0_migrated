@@ -120,6 +120,21 @@ export const add = mutation({
       );
     }
 
+    // Send welcome SMS to contributor
+    const smsFreqLabel =
+      args.frequency === "daily"
+        ? "Daily"
+        : args.frequency === "weekly"
+          ? "Weekly"
+          : "Monthly";
+    await ctx.scheduler.runAfter(0, internal.sms.sendContributorWelcomeSMS, {
+      to: args.phone,
+      contributorName: args.name,
+      agentName: user.name ?? "Your Agent",
+      frequency: smsFreqLabel,
+      amount: args.dailyAmount,
+    });
+
     return contributorId;
   },
 });

@@ -86,6 +86,15 @@ export const record = mutation({
       );
     }
 
+    // Send SMS notification to contributor
+    await ctx.scheduler.runAfter(0, internal.sms.sendCollectionSMS, {
+      to: contributor.phone,
+      contributorName: contributor.name,
+      amount: args.amount,
+      referenceNumber,
+      paymentMethod: args.paymentMethod,
+    });
+
     return { collectionId, referenceNumber };
   },
 });

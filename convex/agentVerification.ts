@@ -269,6 +269,14 @@ export const approve = mutation({
         agentName: agentUser.name ?? "Agent",
       });
     }
+
+    // Send approval SMS to the agent
+    if (verification.phone) {
+      await ctx.scheduler.runAfter(0, internal.sms.sendAgentApprovalSMS, {
+        to: verification.phone,
+        agentName: agentUser?.name ?? "Agent",
+      });
+    }
   },
 });
 

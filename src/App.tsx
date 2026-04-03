@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { DefaultProviders } from "./components/providers/default.tsx";
+import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 import AuthCallback from "./pages/auth/Callback.tsx";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -12,6 +13,7 @@ import AboutPage from "./pages/about/page.tsx";
 import FaqPage from "./pages/faq/page.tsx";
 
 export default function App() {
+  useServiceWorker();
   return (
     <DefaultProviders>
       <BrowserRouter>

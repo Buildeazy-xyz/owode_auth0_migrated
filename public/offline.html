@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline - OWODE</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #f0fdf4;
+        color: #166534;
+      }
+      .container {
+        text-align: center;
+        padding: 2rem;
+        max-width: 400px;
+      }
+      .icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1.5rem;
+        border-radius: 16px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        color: #4b5563;
+        line-height: 1.6;
+      }
+      button {
+        margin-top: 1.5rem;
+        padding: 0.75rem 2rem;
+        background: #166534;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #14532d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <img src="/icon/icon-192.png" alt="OWODE" class="icon" />
+      <h1>You're offline</h1>
+      <p>
+        Please check your internet connection and try again. Your data will sync
+        automatically when you're back online.
+      </p>
+      <button onclick="window.location.reload()">Try Again</button>
+    </div>
+  </body>
+</html>

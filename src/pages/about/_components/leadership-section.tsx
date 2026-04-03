@@ -92,7 +92,7 @@ function TeamCard({
           <img
             src={member.photo}
             alt={member.name}
-            className={`w-full h-full ${member.name === "Adewale Qozeem" || member.name === "Aminat Tolani Iyiola" ? "object-contain p-2" : "object-cover object-top"}`}
+            className={`w-full h-full ${member.name === "Adewale Qozeem" || member.name === "Aminat Tolani Iyiola" ? "object-contain p-2" : member.name === "Itunu-Oluwa Olurin" ? "object-contain p-1" : "object-cover object-top"}`}
           />
         ) : (
           <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">

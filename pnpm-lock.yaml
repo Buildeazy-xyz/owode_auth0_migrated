@@ -92,9 +92,15 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.95.2
         version: 5.95.2(react@19.2.4)
+      '@types/escape-html':
+        specifier: ^1.0.4
+        version: 1.0.4
       '@usehercules/auth':
         specifier: ^1.0.40
         version: 1.0.40(convex@1.34.1(react@19.2.4))(react@19.2.4)
+      '@usehercules/sdk':
+        specifier: ^1.14.4
+        version: 1.14.4
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -113,6 +119,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.4)
+      escape-html:
+        specifier: ^1.0.3
+        version: 1.0.3
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1700,6 +1709,9 @@ packages:
   '@types/d3-timer@3.0.2':
     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
 
+  '@types/escape-html@1.0.4':
+    resolution: {integrity: sha512-qZ72SFTgUAZ5a7Tj6kf2SHLetiH5S6f8G5frB2SPQ3EyF02kxdyBFf4Tz4banE3xCgGnKgWLt//a6VuYHKYJTg==}
+
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
@@ -1826,6 +1838,9 @@ packages:
       '@typescript-eslint/parser': '>=8.0.0'
       eslint: '>=9.0.0'
       typescript: '>=4.0.0'
+
+  '@usehercules/sdk@1.14.4':
+    resolution: {integrity: sha512-vW8nnjwPHV0A7athSFPic/sk8yJfSBVJ08Q7RbRYc65icldWmjsUOJ0TrnPsTr3JrTFoL7LTLC06uCO4vjs+hg==}
 
   '@usehercules/vite@1.0.40':
     resolution: {integrity: sha512-moZt/omRlQZvRYlRKRtcmGxE6oNBEThacuXPDGFWRmFnlcBlUphT65reboYtVZ35F6ds8vdpF6OAoEjPLcO6rg==}
@@ -2043,6 +2058,9 @@ packages:
     resolution: {integrity: sha512-Rq4vbHnYkK5fws5NF7MYTU68FPRE1ajX7heQ/8QXXWqNgqqJ/GkmmyxIzUnf2Sr/bakf8l54716CcMGHYhMrrQ==}
     engines: {node: '>=18'}
     hasBin: true
+
+  escape-html@1.0.3:
+    resolution: {integrity: sha512-NiSupZ4OeuGwr68lGIeym/ksIZMJodUGOSCZ/FSnTxcrekbvqrgdUxlJOMpijaKZVjAJrWrGs/6Jy8OMuyj9ow==}
 
   escape-string-regexp@4.0.0:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
@@ -4027,6 +4045,8 @@ snapshots:
 
   '@types/d3-timer@3.0.2': {}
 
+  '@types/escape-html@1.0.4': {}
+
   '@types/estree@1.0.8': {}
 
   '@types/json-schema@7.0.15': {}
@@ -4203,6 +4223,8 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
+
+  '@usehercules/sdk@1.14.4': {}
 
   '@usehercules/vite@1.0.40(vite@7.3.1(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0))':
     dependencies:
@@ -4453,6 +4475,8 @@ snapshots:
       '@esbuild/win32-arm64': 0.27.4
       '@esbuild/win32-ia32': 0.27.4
       '@esbuild/win32-x64': 0.27.4
+
+  escape-html@1.0.3: {}
 
   escape-string-regexp@4.0.0: {}
 

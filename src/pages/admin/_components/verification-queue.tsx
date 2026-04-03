@@ -23,7 +23,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
@@ -79,11 +78,14 @@ type VerificationItem = {
 
 export default function VerificationQueue() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
-  const [selected, setSelected] = useState<VerificationItem | null>(null);
+  const [selectedId, setSelectedId] = useState<Id<"agent_verifications"> | null>(null);
 
   const verifications = useQuery(api.agentVerification.listVerifications, {
     statusFilter,
   });
+
+  // Find the currently selected verification from the live query data
+  const selected = verifications?.find((v) => v._id === selectedId) ?? null;
 
   return (
     <>
@@ -132,41 +134,39 @@ export default function VerificationQueue() {
             </Empty>
           ) : (
             <div className="space-y-2">
-              {verifications.map((item) => {
-                return (
-                  <div
-                    key={item._id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer"
-                    onClick={() => setSelected(item)}
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate">
-                          {item.userName}
-                        </p>
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[item.status] ?? ""}`}
-                        >
-                          {item.status.replace("_", " ")}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {item.phone} &middot; {item.userEmail || "No email"}
+              {verifications.map((item) => (
+                <div
+                  key={item._id}
+                  className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer"
+                  onClick={() => setSelectedId(item._id)}
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm truncate">
+                        {item.userName}
                       </p>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[item.status] ?? ""}`}
+                      >
+                        {item.status.replace("_", " ")}
+                      </Badge>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(item.submittedAt), "MMM d, yyyy")}
-                      </p>
-                      <Button size="sm" variant="ghost" className="h-7 mt-1">
-                        <Eye className="w-3.5 h-3.5 mr-1" />
-                        Review
-                      </Button>
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {item.phone} &middot; {item.userEmail || "No email"}
+                    </p>
                   </div>
-                );
-              })}
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(item.submittedAt), "MMM d, yyyy")}
+                    </p>
+                    <Button size="sm" variant="ghost" className="h-7 mt-1">
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      Review
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -175,7 +175,7 @@ export default function VerificationQueue() {
       {selected && (
         <ReviewVerificationDialog
           verification={selected}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedId(null)}
         />
       )}
     </>
@@ -261,7 +261,7 @@ function ReviewVerificationDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg flex flex-col max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="font-serif">
             Review Agent Application
@@ -272,7 +272,8 @@ function ReviewVerificationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {/* Applicant info */}
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -355,53 +356,60 @@ function ReviewVerificationDialog({
             </div>
           )}
 
-          {/* Action area */}
+          {/* Rejection reason input */}
           {isActionable && (
-            <div className="space-y-3 pt-2">
-              {verification.status === "pending" && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full gap-1.5"
-                  onClick={handleMarkReview}
-                >
-                  <Clock className="w-4 h-4" />
-                  Mark as Under Review
-                </Button>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="reject-reason">
-                  Rejection reason (required to reject)
-                </Label>
-                <Textarea
-                  id="reject-reason"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Provide a reason if rejecting..."
-                  rows={2}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="reject-reason">
+                Rejection reason (required to reject)
+              </Label>
+              <Textarea
+                id="reject-reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Provide a reason if rejecting..."
+                rows={2}
+              />
             </div>
           )}
         </div>
 
+        {/* Action buttons — always visible at bottom */}
         {isActionable && (
-          <DialogFooter className="flex gap-2 sm:gap-0">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleReject}
-              disabled={loading}
-            >
-              <XCircle className="w-4 h-4 mr-1.5" />
-              Reject
-            </Button>
-            <Button size="sm" onClick={handleApprove} disabled={loading}>
-              <CheckCircle className="w-4 h-4 mr-1.5" />
-              Approve
-            </Button>
-          </DialogFooter>
+          <div className="flex flex-col gap-2 pt-4 border-t border-border">
+            {verification.status === "pending" && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full gap-1.5"
+                onClick={handleMarkReview}
+                disabled={loading}
+              >
+                <Clock className="w-4 h-4" />
+                Mark as Under Review
+              </Button>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                size="sm"
+                className="flex-1 gap-1.5"
+                onClick={handleReject}
+                disabled={loading}
+              >
+                <XCircle className="w-4 h-4" />
+                Reject
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 gap-1.5"
+                onClick={handleApprove}
+                disabled={loading}
+              >
+                <CheckCircle className="w-4 h-4" />
+                Approve
+              </Button>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>

@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel.d.ts";
 import type { QueryCtx } from "./_generated/server.d.ts";
 
@@ -86,6 +87,24 @@ export const submit = mutation({
       throw new ConvexError({
         code: "CONFLICT",
         message: "You have already submitted a verification application",
+      });
+    }
+
+    // Enforce phone uniqueness: no other agent should use this phone
+    const phoneInUse = await ctx.db
+      .query("agent_verifications")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("phone"), args.phone),
+          q.neq(q.field("status"), "rejected"),
+        ),
+      )
+      .first();
+    if (phoneInUse) {
+      throw new ConvexError({
+        code: "CONFLICT",
+        message:
+          "This phone number is already registered with another agent application",
       });
     }
 
@@ -211,12 +230,12 @@ export const markUnderReview = mutation({
   },
 });
 
-/** Approve an agent's verification */
+  /** Approve an agent's verification */
 export const approve = mutation({
   args: {
     verificationId: v.id("agent_verifications"),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<void> => {
     const admin = await requireAdmin(ctx);
 
     const verification = await ctx.db.get(args.verificationId);
@@ -242,7 +261,14 @@ export const approve = mutation({
     });
     await ctx.db.patch(verification.userId, { agentStatus: "approved" });
 
-    return args.verificationId;
+    // Send approval email to the agent
+    const agentUser = await ctx.db.get(verification.userId);
+    if (agentUser?.email) {
+      await ctx.scheduler.runAfter(0, internal.emails.sendAgentApprovalEmail, {
+        to: agentUser.email,
+        agentName: agentUser.name ?? "Agent",
+      });
+    }
   },
 });
 

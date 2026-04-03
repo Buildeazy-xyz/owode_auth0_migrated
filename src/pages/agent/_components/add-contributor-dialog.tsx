@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx";
-import { UserPlus, CalendarClock } from "lucide-react";
+import { UserPlus, CalendarClock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
 
@@ -44,6 +44,7 @@ export default function AddContributorDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("daily");
   const [weeklyDay, setWeeklyDay] = useState("1"); // Monday default
@@ -55,6 +56,7 @@ export default function AddContributorDialog() {
   const resetForm = () => {
     setName("");
     setPhone("");
+    setEmail("");
     setAmount("");
     setFrequency("daily");
     setWeeklyDay("1");
@@ -73,6 +75,7 @@ export default function AddContributorDialog() {
       await addContributor({
         name,
         phone,
+        email: email.trim() || undefined,
         dailyAmount: Number(amount),
         frequency,
         weeklyDay: frequency === "weekly" ? Number(weeklyDay) : undefined,
@@ -130,6 +133,24 @@ export default function AddContributorDialog() {
               placeholder="08012345678"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="contributor-email" className="flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5" />
+              Email Address
+              <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="contributor-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="example@gmail.com"
+            />
+            <p className="text-xs text-muted-foreground">
+              If provided, the contributor will receive email notifications for collections and updates.
+            </p>
           </div>
 
           {/* Contribution frequency */}
@@ -206,7 +227,7 @@ export default function AddContributorDialog() {
 
           <div className="space-y-2">
             <Label htmlFor="contributor-amount">
-              {currentFrequency?.amountLabel ?? "Amount"} (₦)
+              {currentFrequency?.amountLabel ?? "Amount"} ({"\u20A6"})
             </Label>
             <Input
               id="contributor-amount"

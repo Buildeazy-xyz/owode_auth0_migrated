@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /** Generate a unique reference number for each collection */
 function generateReference(): string {
@@ -68,6 +69,22 @@ export const record = mutation({
       bankReference: args.bankReference,
       note: args.note,
     });
+
+    // Send notification email to contributor if they have an email
+    if (contributor.email) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.emails.sendCollectionNotificationEmail,
+        {
+          to: contributor.email,
+          contributorName: contributor.name,
+          agentName: user.name ?? "Your Agent",
+          amount: args.amount,
+          referenceNumber,
+          paymentMethod: args.paymentMethod,
+        },
+      );
+    }
 
     return { collectionId, referenceNumber };
   },

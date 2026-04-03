@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel.d.ts";
 
 /** Frequency type used across the codebase */
@@ -34,7 +35,7 @@ export const add = mutation({
     monthlyDay: v.optional(v.number()),
     startDate: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Id<"contributors">> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError({
@@ -55,6 +56,22 @@ export const add = mutation({
       });
     }
 
+    // Enforce phone uniqueness per agent
+    const existingContributors = await ctx.db
+      .query("contributors")
+      .withIndex("by_agent", (q) => q.eq("agentId", user._id))
+      .collect();
+    const duplicatePhone = existingContributors.find(
+      (c) => c.phone === args.phone,
+    );
+    if (duplicatePhone) {
+      throw new ConvexError({
+        code: "CONFLICT",
+        message:
+          "You already have a contributor with this phone number. Each contributor must have a unique phone number.",
+      });
+    }
+
     // Validate frequency-specific fields
     if (args.frequency === "weekly" && args.weeklyDay === undefined) {
       throw new ConvexError({
@@ -69,7 +86,7 @@ export const add = mutation({
       });
     }
 
-    return await ctx.db.insert("contributors", {
+    const contributorId = await ctx.db.insert("contributors", {
       name: args.name,
       phone: args.phone,
       email: args.email,
@@ -81,6 +98,29 @@ export const add = mutation({
       startDate: args.startDate ?? new Date().toISOString(),
       status: "active",
     });
+
+    // Send welcome email to contributor if they have an email
+    if (args.email) {
+      const freqLabel =
+        args.frequency === "daily"
+          ? "Daily"
+          : args.frequency === "weekly"
+            ? "Weekly"
+            : "Monthly";
+      await ctx.scheduler.runAfter(
+        0,
+        internal.emails.sendContributorWelcomeEmail,
+        {
+          to: args.email,
+          contributorName: args.name,
+          agentName: user.name ?? "Your Agent",
+          frequency: freqLabel,
+          amount: args.dailyAmount,
+        },
+      );
+    }
+
+    return contributorId;
   },
 });
 

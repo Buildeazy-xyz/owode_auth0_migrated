@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Download } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { usePwaInstall } from "@/hooks/use-pwa-install.ts";
 import {
   Authenticated,
   Unauthenticated,
@@ -45,6 +46,7 @@ function DashboardLink({ className }: { className?: string }) {
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { canInstall, install } = usePwaInstall();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -94,6 +96,12 @@ export default function Header() {
 
           {/* Desktop auth buttons */}
           <div className="hidden md:flex items-center gap-3">
+            {canInstall && (
+              <Button size="sm" variant="secondary" onClick={install} className="gap-1.5">
+                <Download className="w-4 h-4" />
+                Install App
+              </Button>
+            )}
             <AuthLoading>
               <Skeleton className="h-9 w-20" />
             </AuthLoading>
@@ -152,6 +160,12 @@ export default function Header() {
                 ),
               )}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
+                {canInstall && (
+                  <Button size="sm" variant="secondary" onClick={install} className="gap-1.5 justify-start">
+                    <Download className="w-4 h-4" />
+                    Install App
+                  </Button>
+                )}
                 <AuthLoading>
                   <Skeleton className="h-9 w-full" />
                 </AuthLoading>

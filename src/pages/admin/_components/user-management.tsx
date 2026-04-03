@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { Label } from "@/components/ui/label.tsx";
+import { Textarea } from "@/components/ui/textarea.tsx";
 import {
   Empty,
   EmptyHeader,
@@ -22,8 +24,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog.tsx";
 import {
   Users,
   MoreVertical,
@@ -32,6 +43,8 @@ import {
   Crown,
   UserX,
   Mail,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
@@ -49,7 +62,13 @@ export default function UserManagement() {
   const promoteToAdmin = useMutation(api.users.promoteToAdmin);
   const demoteAdmin = useMutation(api.users.demoteAdmin);
   const removeUserRole = useMutation(api.users.removeUserRole);
+  const deleteUserMutation = useMutation(api.users.deleteUser);
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Delete dialog state
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const handlePromote = async (userId: Id<"users">, name: string) => {
     setLoading(userId);
@@ -102,6 +121,29 @@ export default function UserManagement() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!deleteTarget || !deleteReason.trim()) return;
+    setDeleting(true);
+    try {
+      await deleteUserMutation({
+        userId: deleteTarget._id,
+        reason: deleteReason.trim(),
+      });
+      toast.success(`${deleteTarget.name} has been deleted`);
+      setDeleteTarget(null);
+      setDeleteReason("");
+    } catch (error) {
+      if (error instanceof ConvexError) {
+        const data = error.data as { message: string };
+        toast.error(data.message);
+      } else {
+        toast.error("Failed to delete user");
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (users === undefined) {
     return (
       <Card>
@@ -144,30 +186,94 @@ export default function UserManagement() {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-serif">
-          User Management
-          <span className="text-sm font-normal text-muted-foreground ml-2">
-            ({users.length} user{users.length !== 1 ? "s" : ""})
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {sorted.map((user) => (
-            <UserRowItem
-              key={user._id}
-              user={user}
-              loading={loading === user._id}
-              onPromote={() => handlePromote(user._id, user.name)}
-              onDemote={() => handleDemote(user._id, user.name)}
-              onRemoveRole={() => handleRemoveRole(user._id, user.name)}
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-serif">
+            User Management
+            <span className="text-sm font-normal text-muted-foreground ml-2">
+              ({users.length} user{users.length !== 1 ? "s" : ""})
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {sorted.map((user) => (
+              <UserRowItem
+                key={user._id}
+                user={user}
+                loading={loading === user._id}
+                onPromote={() => handlePromote(user._id, user.name)}
+                onDemote={() => handleDemote(user._id, user.name)}
+                onRemoveRole={() => handleRemoveRole(user._id, user.name)}
+                onDelete={() => setDeleteTarget(user)}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteReason("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              Delete User
+            </DialogTitle>
+            <DialogDescription>
+              You are about to permanently delete{" "}
+              <strong>{deleteTarget?.name}</strong>
+              {deleteTarget?.email ? ` (${deleteTarget.email})` : ""}. This
+              action cannot be undone. All associated data (verification records,
+              linked contributor accounts) will also be cleaned up.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="delete-reason">
+              Reason for deletion <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="delete-reason"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="Enter the reason for deleting this user..."
+              rows={3}
+              required
             />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteReason("");
+              }}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={deleting || !deleteReason.trim()}
+            >
+              {deleting ? "Deleting..." : "Delete User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -177,12 +283,14 @@ function UserRowItem({
   onPromote,
   onDemote,
   onRemoveRole,
+  onDelete,
 }: {
   user: UserRow;
   loading: boolean;
   onPromote: () => void;
   onDemote: () => void;
   onRemoveRole: () => void;
+  onDelete: () => void;
 }) {
   const roleBadge = () => {
     if (user.isSuperAdmin) {
@@ -247,14 +355,19 @@ function UserRowItem({
                 </DropdownMenuItem>
               )}
               {user.role && (
-                <DropdownMenuItem
-                  onClick={onRemoveRole}
-                  className="text-destructive"
-                >
+                <DropdownMenuItem onClick={onRemoveRole}>
                   <UserX className="w-4 h-4 mr-2" />
                   Remove All Roles
                 </DropdownMenuItem>
               )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete User
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}

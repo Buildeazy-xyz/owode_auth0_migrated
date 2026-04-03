@@ -269,3 +269,73 @@ export const removeUserRole = mutation({
     return args.userId;
   },
 });
+
+/** Delete a user entirely (super admin only) */
+export const deleteUser = mutation({
+  args: {
+    userId: v.id("users"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique();
+    if (!caller || !caller.isSuperAdmin) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Only the super admin can delete users",
+      });
+    }
+
+    const target = await ctx.db.get(args.userId);
+    if (!target) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User not found",
+      });
+    }
+    if (target.isSuperAdmin) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Cannot delete the super admin account",
+      });
+    }
+
+    // If the user is an agent, also clean up their verification record
+    const verification = await ctx.db
+      .query("agent_verifications")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+    if (verification) {
+      await ctx.db.delete(verification._id);
+    }
+
+    // If the user is linked to a contributor, unlink it
+    if (target.contributorId) {
+      const contributor = await ctx.db.get(target.contributorId);
+      if (contributor) {
+        await ctx.db.patch(contributor._id, { userId: undefined });
+      }
+    }
+
+    // Delete the user
+    await ctx.db.delete(args.userId);
+
+    // Log the deletion reason (visible in backend logs)
+    console.log(
+      `User ${target.name ?? target._id} deleted by super admin. Reason: ${args.reason}`,
+    );
+
+    return args.userId;
+  },
+});

@@ -92,7 +92,7 @@ function TeamCard({
           <img
             src={member.photo}
             alt={member.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover object-top"
           />
         ) : (
           <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">

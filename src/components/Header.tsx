@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Menu, X, Download } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { usePwaInstall } from "@/hooks/use-pwa-install.ts";
+import { toast } from "sonner";
 import {
   Authenticated,
   Unauthenticated,
@@ -47,7 +48,7 @@ function DashboardLink({ className }: { className?: string }) {
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { canInstall, install } = usePwaInstall();
+  const { canInstall, isInstalled, install } = usePwaInstall();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -117,16 +118,31 @@ export default function Header() {
           </div>
 
           <div className="md:hidden flex items-center gap-1">
-            {canInstall && (
-              <Button size="icon" variant="secondary" onClick={install} className="h-9 w-9">
-                <Download className="w-4 h-4" />
-              </Button>
+            {!isInstalled && (
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={async () => {
+                const installed = await install();
+                if (!installed && !canInstall) {
+                  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                  if (isIOS) {
+                    toast.info("Tap the Share button in Safari, then tap \"Add to Home Screen\"");
+                  } else {
+                    toast.info("Tap the browser menu (⋮) and select \"Install app\" or \"Add to Home screen\"");
+                  }
+                }
+              }}
+              className="h-9 w-9"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
             )}
-          <button
-            className="p-2 text-foreground"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
+            <button
+              className="p-2 text-foreground"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
             {mobileMenuOpen ? (
               <X className="w-5 h-5" />
             ) : (

@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "About", href: "/about" },
   { label: "FAQ", href: "/faq" },
+  { label: "Contact", href: "/contact" },
 ];
 
 /** Resolves the correct dashboard URL based on the user's role */

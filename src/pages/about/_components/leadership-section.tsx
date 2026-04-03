@@ -24,7 +24,7 @@ const TEAM = [
     name: "Aminat Tolani Iyiola",
     role: "Assistant Administration Manager",
     description: "Supports coordination and administrative systems.",
-    photo: null,
+    photo: "https://hercules-cdn.com/file_taXtfL8tPEgJi7FhsNcnjMLZ",
   },
   {
     name: "Adewale Qozeem",

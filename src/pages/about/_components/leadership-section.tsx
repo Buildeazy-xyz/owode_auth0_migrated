@@ -18,7 +18,7 @@ const TEAM = [
     name: "Mary Oladuni Abiona",
     role: "Operations Manager",
     description: "Oversees daily activities and customer experience.",
-    photo: null,
+    photo: "https://hercules-cdn.com/file_rtlllTUelauzfKlGXI30SArK",
   },
   {
     name: "Aminat Tolani Iyiola",

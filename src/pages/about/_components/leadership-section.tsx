@@ -12,7 +12,7 @@ const TEAM = [
     name: "Itunu-Oluwa Olurin",
     role: "Chief Executive Officer",
     description: "Leads operations and ensures excellent service delivery.",
-    photo: null,
+    photo: "https://hercules-cdn.com/file_06SAjw2exX5k141m3HizuPeE",
   },
   {
     name: "Mary Oladuni Abiona",

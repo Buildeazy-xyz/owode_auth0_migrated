@@ -10,9 +10,11 @@ export function useAuth() {
       isLoading: auth.isLoading || auth.activeNavigator === "signinRedirect",
       error: auth.error ?? null,
       user: auth.user ?? null,
-      signinRedirect: () =>
+      signinRedirect: (mode: "signin" | "signup" = "signin") =>
         auth.signinRedirect({
           prompt: "login",
+          extraQueryParams:
+            mode === "signup" ? { screen_hint: "signup" } : undefined,
         }),
       removeUser: () =>
         auth.signoutRedirect({

@@ -34,6 +34,11 @@ export interface SignInButtonProps
    */
   loadingText?: string;
   /**
+   * Whether to open the login or signup screen
+   * @default "signin"
+   */
+  authMode?: "signin" | "signup";
+  /**
    * Whether to use the asChild pattern
    * @default false
    */
@@ -56,6 +61,7 @@ export const SignInButton = forwardRef<HTMLButtonElement, SignInButtonProps>(
       className,
       variant,
       size,
+      authMode = "signin",
       asChild = false,
       ...props
     },
@@ -82,14 +88,14 @@ export const SignInButton = forwardRef<HTMLButtonElement, SignInButtonProps>(
           if (isAuthenticated) {
             await removeUser();
           } else {
-            await signinRedirect();
+            await signinRedirect(authMode);
           }
         } catch (err) {
           console.error("Authentication error:", err);
           // Don't prevent the default here as the auth library handles errors
         }
       },
-      [isAuthenticated, removeUser, signinRedirect, onClick],
+      [authMode, isAuthenticated, removeUser, signinRedirect, onClick],
     );
 
     const isDisabled = disabled || isLoading;

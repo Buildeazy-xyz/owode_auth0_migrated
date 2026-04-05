@@ -133,7 +133,12 @@ export default function Header() {
             </AuthLoading>
             <Unauthenticated>
               <SignInButton variant="ghost" size="sm" />
-              <SignInButton size="sm" signInText="Get Started" showIcon={false} />
+              <SignInButton
+                size="sm"
+                signInText="Sign Up"
+                showIcon={false}
+                authMode="signup"
+              />
             </Unauthenticated>
             <Authenticated>
               <DashboardLink />
@@ -142,6 +147,22 @@ export default function Header() {
           </div>
 
           <div className="md:hidden flex items-center gap-1">
+            <Unauthenticated>
+              <SignInButton
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                showIcon={false}
+                signInText="Sign In"
+              />
+              <SignInButton
+                size="sm"
+                className="h-8 px-2 text-xs"
+                signInText="Sign Up"
+                showIcon={false}
+                authMode="signup"
+              />
+            </Unauthenticated>
             {!isInstalled && (
               <Button
                 size="icon"
@@ -210,8 +231,9 @@ export default function Header() {
                   />
                   <SignInButton
                     size="sm"
-                    signInText="Get Started"
+                    signInText="Sign Up"
                     showIcon={false}
+                    authMode="signup"
                   />
                 </Unauthenticated>
                 <Authenticated>

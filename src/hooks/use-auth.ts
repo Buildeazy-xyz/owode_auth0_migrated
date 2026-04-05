@@ -10,13 +10,7 @@ export function useAuth() {
       isLoading: auth.isLoading || auth.activeNavigator === "signinRedirect",
       error: auth.error ?? null,
       user: auth.user ?? null,
-      signinRedirect: () =>
-        auth.signinRedirect({
-          redirect_uri: new URL(
-            "/auth/callback",
-            window.location.origin,
-          ).toString(),
-        }),
+      signinRedirect: () => auth.signinRedirect(),
       removeUser: () =>
         auth.signoutRedirect({
           post_logout_redirect_uri: window.location.origin,

@@ -24,7 +24,7 @@ function resolveAuthUrl(configuredUrl: string | undefined, fallbackPath: string)
 
 const redirectUri = resolveAuthUrl(
   import.meta.env.VITE_AUTH0_REDIRECT_URI,
-  "/auth/callback",
+  "/",
 );
 const postLogoutRedirectUri = resolveAuthUrl(
   import.meta.env.VITE_AUTH0_POST_LOGOUT_REDIRECT_URI,
@@ -70,11 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         jwks_uri: `${authority}/.well-known/jwks.json`,
       }}
       onSigninCallback={() => {
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname,
-        );
+        const nextPath = "/auth/callback";
+        window.history.replaceState({}, document.title, nextPath);
+        window.dispatchEvent(new PopStateEvent("popstate"));
       }}
     >
       {children}

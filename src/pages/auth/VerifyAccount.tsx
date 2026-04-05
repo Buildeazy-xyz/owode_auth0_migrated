@@ -42,6 +42,7 @@ function VerifyAccountContent() {
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [autoSent, setAutoSent] = useState(false);
+  const bypassVerification = !!(user?.role === "admin" || user?.isSuperAdmin);
   const needsPhone = !user?.phone?.trim();
   const hasValidPhone = phone.replace(/\D/g, "").length >= 10;
 
@@ -54,12 +55,18 @@ function VerifyAccountContent() {
   }, [updateCurrentUser, user]);
 
   useEffect(() => {
-    if (!user || !(user.isVerified ?? false)) {
+    if (!user) {
       return;
     }
 
-    navigate(getNextRoute(user.role), { replace: true });
-  }, [navigate, user]);
+    if (!bypassVerification && !(user.isVerified ?? false)) {
+      return;
+    }
+
+    navigate(bypassVerification ? "/admin" : getNextRoute(user.role), {
+      replace: true,
+    });
+  }, [bypassVerification, navigate, user]);
 
   useEffect(() => {
     if (user?.phone && phone === "+234") {
@@ -102,13 +109,21 @@ function VerifyAccountContent() {
   };
 
   useEffect(() => {
-    if (!verification || !user || verification.isVerified || autoSent || isSending || needsPhone) {
+    if (
+      !verification ||
+      !user ||
+      bypassVerification ||
+      verification.isVerified ||
+      autoSent ||
+      isSending ||
+      needsPhone
+    ) {
       return;
     }
 
     setAutoSent(true);
     void requestVerificationCode(false);
-  }, [autoSent, isSending, needsPhone, user, verification]);
+  }, [autoSent, bypassVerification, isSending, needsPhone, user, verification]);
 
   const deliverySummary = useMemo(() => {
     if (!verification) return "";

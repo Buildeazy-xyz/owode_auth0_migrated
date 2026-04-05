@@ -55,6 +55,8 @@ export const updateCurrentUser = mutation({
         phone?: string;
         isSuperAdmin?: boolean;
         role?: "admin";
+        isVerified?: boolean;
+        verifiedAt?: string;
       } = {};
 
       if (identity.name && identity.name !== user.name) {
@@ -76,6 +78,15 @@ export const updateCurrentUser = mutation({
         patch.role = "admin";
       }
 
+      if (
+        identity.email === SUPER_ADMIN_EMAIL ||
+        user.isSuperAdmin ||
+        user.role === "admin"
+      ) {
+        patch.isVerified = true;
+        patch.verifiedAt = user.verifiedAt ?? new Date().toISOString();
+      }
+
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(user._id, patch);
       }
@@ -84,12 +95,14 @@ export const updateCurrentUser = mutation({
 
     // New user — check if this is the super admin
     const isSuperAdmin = identity.email === SUPER_ADMIN_EMAIL;
+    const verifiedAt = isSuperAdmin ? new Date().toISOString() : undefined;
     return await ctx.db.insert("users", {
       name: identity.name,
       email: identity.email,
       phone: identityPhone,
       tokenIdentifier: identity.tokenIdentifier,
-      isVerified: false,
+      isVerified: isSuperAdmin,
+      ...(verifiedAt ? { verifiedAt } : {}),
       ...(isSuperAdmin ? { isSuperAdmin: true, role: "admin" } : {}),
     });
   },

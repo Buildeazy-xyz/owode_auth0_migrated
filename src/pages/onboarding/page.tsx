@@ -69,16 +69,18 @@ function OnboardingContent() {
     });
   }, [updateCurrentUser, user]);
 
+  const bypassVerification = !!(user?.role === "admin" || user?.isSuperAdmin);
+
   // Redirect if user must verify first or already has a role
   useEffect(() => {
     if (!user) return;
 
-    if (!(user.isVerified ?? false)) {
+    if (!bypassVerification && !(user.isVerified ?? false)) {
       navigate("/verify-account", { replace: true });
       return;
     }
 
-    if (user.role === "admin") {
+    if (user.role === "admin" || user.isSuperAdmin) {
       navigate("/admin", { replace: true });
     } else if (user.role === "agent") {
       // If agent but pending/under_review, show the agent dashboard (it'll handle the gate)
@@ -86,9 +88,13 @@ function OnboardingContent() {
     } else if (user.role === "contributor") {
       navigate("/contributor", { replace: true });
     }
-  }, [user, navigate]);
+  }, [bypassVerification, user, navigate]);
 
-  if (user === undefined || user === null || !(user.isVerified ?? false)) {
+  if (
+    user === undefined ||
+    user === null ||
+    (!bypassVerification && !(user.isVerified ?? false))
+  ) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spinner className="size-8" />

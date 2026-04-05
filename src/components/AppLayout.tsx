@@ -43,6 +43,7 @@ export default function AppLayout() {
 
 function VerifiedAppLayout() {
   const user = useQuery(api.users.getCurrentUser);
+  const bypassVerification = !!(user?.role === "admin" || user?.isSuperAdmin);
 
   if (user === undefined || user === null) {
     return (
@@ -52,7 +53,7 @@ function VerifiedAppLayout() {
     );
   }
 
-  if (!(user.isVerified ?? false)) {
+  if (!bypassVerification && !(user.isVerified ?? false)) {
     return <Navigate to="/verify-account" replace />;
   }
 

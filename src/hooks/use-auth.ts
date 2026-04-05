@@ -10,7 +10,10 @@ export function useAuth() {
       isLoading: auth.isLoading || auth.activeNavigator === "signinRedirect",
       error: auth.error ?? null,
       user: auth.user ?? null,
-      signinRedirect: () => auth.signinRedirect(),
+      signinRedirect: () =>
+        auth.signinRedirect({
+          prompt: "login",
+        }),
       removeUser: () =>
         auth.signoutRedirect({
           post_logout_redirect_uri: window.location.origin,

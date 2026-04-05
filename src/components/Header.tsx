@@ -48,7 +48,26 @@ function DashboardLink({ className }: { className?: string }) {
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { canInstall, isInstalled, install } = usePwaInstall();
+  const { canInstall, isInstalled, isIOS, requiresManualInstall, install } =
+    usePwaInstall();
+
+  const handleInstallClick = async () => {
+    const installed = await install();
+    if (installed) return;
+
+    if (isIOS || requiresManualInstall) {
+      toast.info(
+        'On iPhone/iPad, open this site in Safari, tap Share, then choose "Add to Home Screen".',
+        { duration: 6000 },
+      );
+      return;
+    }
+
+    toast.info(
+      'Open this site in Chrome or Safari and use the browser menu to select "Install app" or "Add to Home Screen".',
+      { duration: 5000 },
+    );
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -98,8 +117,13 @@ export default function Header() {
 
           {/* Desktop auth buttons */}
           <div className="hidden md:flex items-center gap-3">
-            {canInstall && (
-              <Button size="sm" variant="secondary" onClick={install} className="gap-1.5">
+            {(canInstall || requiresManualInstall) && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleInstallClick}
+                className="gap-1.5"
+              >
                 <Download className="w-4 h-4" />
                 Install App
               </Button>
@@ -119,24 +143,15 @@ export default function Header() {
 
           <div className="md:hidden flex items-center gap-1">
             {!isInstalled && (
-            <Button
-              size="icon"
-              variant="secondary"
-              onClick={async () => {
-                const installed = await install();
-                if (!installed && !canInstall) {
-                  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                  if (isIOS) {
-                    toast.info("Tap the Share button in Safari, then tap \"Add to Home Screen\"");
-                  } else {
-                    toast.info("Tap the browser menu (⋮) and select \"Install app\" or \"Add to Home screen\"");
-                  }
-                }
-              }}
-              className="h-9 w-9"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={handleInstallClick}
+                className="h-9 w-9"
+                aria-label="Install app"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
             )}
             <button
               className="p-2 text-foreground"

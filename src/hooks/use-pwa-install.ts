@@ -5,6 +5,21 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+function detectIOS() {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+  );
+}
+
+function detectStandaloneMode() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone)
+  );
+}
+
 /**
  * Hook that captures the browser's `beforeinstallprompt` event
  * and exposes a one-click install function.
@@ -13,10 +28,12 @@ export function usePwaInstall() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Check if already installed (standalone mode)
-    if (window.matchMedia("(display-mode: standalone)").matches) {
+    setIsIOS(detectIOS());
+
+    if (detectStandaloneMode()) {
       setIsInstalled(true);
       return;
     }
@@ -26,16 +43,17 @@ export function usePwaInstall() {
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener("beforeinstallprompt", handler);
-
-    // Detect when app gets installed
-    window.addEventListener("appinstalled", () => {
+    const handleInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
-    });
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", handleInstalled);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", handleInstalled);
     };
   }, []);
 
@@ -55,6 +73,9 @@ export function usePwaInstall() {
     canInstall: !!deferredPrompt && !isInstalled,
     /** True when the app is already installed */
     isInstalled,
+    /** iPhone/iPad require manual Add to Home Screen */
+    isIOS,
+    requiresManualInstall: isIOS && !isInstalled,
     /** Trigger the native install prompt */
     install,
   };

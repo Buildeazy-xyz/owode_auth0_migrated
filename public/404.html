@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting…</title>
+    <script>
+      (function () {
+        var search = window.location.search || "";
+        var hash = window.location.hash || "";
+        var hasAuthParams = /(^|[?&])(code|state)=/.test(search);
+        var target = hasAuthParams ? "/" + search + hash : "/";
+        window.location.replace(target);
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting…</p>
+  </body>
+</html>

@@ -13,10 +13,13 @@ function resolveAuthUrl(configuredUrl: string | undefined, fallbackPath: string)
 
   try {
     const parsed = new URL(configuredUrl, origin);
-    return new URL(
-      `${parsed.pathname}${parsed.search}${parsed.hash}` || fallbackPath,
-      origin,
-    ).toString();
+    const candidatePath =
+      `${parsed.pathname}${parsed.search}${parsed.hash}` || fallbackPath;
+    const normalizedPath = candidatePath.startsWith("/auth/callback")
+      ? fallbackPath
+      : candidatePath;
+
+    return new URL(normalizedPath, origin).toString();
   } catch {
     return new URL(fallbackPath, origin).toString();
   }

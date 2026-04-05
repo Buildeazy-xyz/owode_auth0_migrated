@@ -226,7 +226,7 @@ function OnboardingContent() {
                   I collect contributions from members and need to record them
                   digitally.
                 </p>
-                <Button variant="secondary" className="w-full">
+                <Button className="w-full bg-red-600 text-white hover:bg-red-700">
                   Apply as Agent
                 </Button>
               </CardContent>

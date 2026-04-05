@@ -7,7 +7,7 @@ const HERO_IMAGE =
   "https://hercules-cdn.com/file_rY7fCH0Pwkhdv3CxSc00Mddc";
 
 const MINI_STATS = [
-  { label: "Contributors", value: "400+" },
+  { label: "Contributors", value: "700+" },
   { label: "Funds Managed", value: "₦50M+" },
   { label: "Active Agents", value: "20+" },
 ];
@@ -74,8 +74,7 @@ export default function HeroSection() {
               </Button>
               <Button
                 size="lg"
-                variant="secondary"
-                className="gap-2"
+                className="gap-2 bg-red-600 text-white hover:bg-red-700"
                 onClick={() => signinRedirect()}
               >
                 {"I'm an Agent"} <Smartphone className="w-4 h-4" />

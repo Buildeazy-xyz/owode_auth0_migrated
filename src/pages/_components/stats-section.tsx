@@ -1,9 +1,9 @@
 import { motion } from "motion/react";
 
 const STATS = [
-  { value: "400+", label: "Active Contributors" },
+  { value: "700+", label: "Active Contributors" },
   { value: "₦50M+", label: "Funds Managed" },
-  { value: "Dec 2024", label: "Founded" },
+  { value: "2025", label: "Founded" },
   { value: "99.9%", label: "System Uptime" },
 ];
 

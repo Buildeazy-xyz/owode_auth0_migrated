@@ -25,7 +25,7 @@ export default function CtaSection() {
               Your Money Deserves to Be Safe
             </h2>
             <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Join 400+ contributors who have already moved from risky paper
+              Join 700+ contributors who have already moved from risky paper
               cards to OWODE{"'"}s transparent digital system. Whether you{"'"}re
               a trader, artisan, or rider — your money is safe with OWODE.
             </p>
@@ -39,7 +39,7 @@ export default function CtaSection() {
               </Button>
               <Button
                 size="lg"
-                variant="secondary"
+                className="bg-red-600 text-white hover:bg-red-700"
                 onClick={() => signinRedirect()}
               >
                 {"I'm an Agent"}

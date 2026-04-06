@@ -15,6 +15,7 @@ import type * as contributors from "../contributors.js";
 import type * as emails from "../emails.js";
 import type * as sms from "../sms.js";
 import type * as users from "../users.js";
+import type * as withdrawals from "../withdrawals.js";
 
 import type {
   ApiFromModules,
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   emails: typeof emails;
   sms: typeof sms;
   users: typeof users;
+  withdrawals: typeof withdrawals;
 }>;
 
 /**

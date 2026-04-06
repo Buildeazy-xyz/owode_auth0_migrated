@@ -155,12 +155,12 @@ export default function RequestWithdrawalDialog({
           )}
         </DialogTrigger>
       ) : null}
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-serif">Request Withdrawal</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pb-2">
           <div className="space-y-2">
             <Label>Contributor</Label>
             <Select value={contributorId} onValueChange={setContributorId}>

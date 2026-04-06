@@ -24,6 +24,8 @@ import {
 import { ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 
+type WithdrawalMode = "full" | "partial";
+
 type RequestWithdrawalDialogProps = {
   defaultContributorId?: Id<"contributors"> | string;
   open?: boolean;
@@ -45,6 +47,7 @@ export default function RequestWithdrawalDialog({
   const requestWithdrawal = useMutation(api.withdrawals.requestWithdrawal);
 
   const [contributorId, setContributorId] = useState(defaultContributorId ?? "");
+  const [withdrawalMode, setWithdrawalMode] = useState<WithdrawalMode>("full");
   const [amount, setAmount] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -55,6 +58,20 @@ export default function RequestWithdrawalDialog({
   const activeContributors =
     contributors?.filter((contributor) => contributor.status === "active") ?? [];
 
+  const preview = useQuery(
+    api.withdrawals.getPreview,
+    contributorId
+      ? {
+          contributorId: contributorId as Id<"contributors">,
+          amount:
+            withdrawalMode === "partial" && amount
+              ? Number(amount)
+              : undefined,
+          withdrawAll: withdrawalMode === "full",
+        }
+      : "skip",
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     setContributorId(defaultContributorId ?? "");
@@ -62,6 +79,7 @@ export default function RequestWithdrawalDialog({
 
   const resetForm = () => {
     setContributorId(defaultContributorId ?? "");
+    setWithdrawalMode("full");
     setAmount("");
     setBankName("");
     setAccountNumber("");
@@ -77,7 +95,13 @@ export default function RequestWithdrawalDialog({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!contributorId || !amount || !bankName || !accountNumber || !accountName) {
+    if (
+      !contributorId ||
+      !bankName ||
+      !accountNumber ||
+      !accountName ||
+      (withdrawalMode === "partial" && !amount)
+    ) {
       toast.error("Please fill in all withdrawal details");
       return;
     }
@@ -86,7 +110,8 @@ export default function RequestWithdrawalDialog({
     try {
       const result = await requestWithdrawal({
         contributorId: contributorId as Id<"contributors">,
-        amount: Number(amount),
+        amount: withdrawalMode === "partial" ? Number(amount) : undefined,
+        withdrawAll: withdrawalMode === "full",
         bankName: bankName.trim(),
         accountNumber: accountNumber.trim(),
         accountName: accountName.trim(),
@@ -153,17 +178,84 @@ export default function RequestWithdrawalDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="withdrawal-amount">Amount (₦)</Label>
-            <Input
-              id="withdrawal-amount"
-              type="number"
-              min="1"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="5000"
-              required
-            />
+            <Label>Withdrawal Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setWithdrawalMode("full")}
+                className={`rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all ${
+                  withdrawalMode === "full"
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border text-muted-foreground hover:border-muted-foreground/30"
+                }`}
+              >
+                Withdraw all
+              </button>
+              <button
+                type="button"
+                onClick={() => setWithdrawalMode("partial")}
+                className={`rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all ${
+                  withdrawalMode === "partial"
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border text-muted-foreground hover:border-muted-foreground/30"
+                }`}
+              >
+                Partial amount
+              </button>
+            </div>
           </div>
+
+          {withdrawalMode === "partial" && (
+            <div className="space-y-2">
+              <Label htmlFor="withdrawal-amount">Amount to Withdraw (₦)</Label>
+              <Input
+                id="withdrawal-amount"
+                type="number"
+                min="1"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                placeholder="5000"
+                required
+              />
+            </div>
+          )}
+
+          {preview && contributorId && (
+            <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <p className="text-muted-foreground">Total saved</p>
+                  <p className="font-medium">₦{preview.totalSaved.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Available balance</p>
+                  <p className="font-medium">₦{preview.availableBalance.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Counted contribution days</p>
+                  <p className="font-medium">{preview.contributionDays} day(s)</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Requested withdrawal</p>
+                  <p className="font-medium">₦{preview.requestedAmount.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Contribution fee</p>
+                  <p className="font-medium">₦{preview.contributionFee.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Penalty fee</p>
+                  <p className="font-medium">₦{preview.penaltyFee.toLocaleString()}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-muted-foreground">Contributor will receive</p>
+                  <p className="text-base font-semibold text-green-700 dark:text-green-400">
+                    ₦{preview.payoutAmount.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="withdrawal-bank-name">Bank Name</Label>
@@ -214,7 +306,7 @@ export default function RequestWithdrawalDialog({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Each recorded contribution counts as one contribution day. Requests below 26 counted days pay both a contribution fee and a penalty fee; from 26 days upward only the contribution fee is applied. This request will also appear on the admin dashboard.
+            Full withdrawal is the default. If the contributor does not want all the money now, switch to partial withdrawal and enter the amount. Each recorded contribution counts as one day; penalty applies until day 25 and stops from day 26 upward. This request will also appear on the admin dashboard.
           </p>
 
           <Button

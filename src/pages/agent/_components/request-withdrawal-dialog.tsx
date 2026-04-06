@@ -1,0 +1,230 @@
+import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
+import { api } from "@/convex/_generated/api.js";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog.tsx";
+import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Label } from "@/components/ui/label.tsx";
+import { Textarea } from "@/components/ui/textarea.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx";
+import { ArrowRightLeft } from "lucide-react";
+import { toast } from "sonner";
+
+type RequestWithdrawalDialogProps = {
+  defaultContributorId?: Id<"contributors"> | string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
+};
+
+export default function RequestWithdrawalDialog({
+  defaultContributorId,
+  open,
+  onOpenChange,
+  trigger,
+}: RequestWithdrawalDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = open ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
+
+  const contributors = useQuery(api.contributors.listByAgent);
+  const requestWithdrawal = useMutation(api.withdrawals.requestWithdrawal);
+
+  const [contributorId, setContributorId] = useState(defaultContributorId ?? "");
+  const [amount, setAmount] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const activeContributors =
+    contributors?.filter((contributor) => contributor.status === "active") ?? [];
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setContributorId(defaultContributorId ?? "");
+  }, [defaultContributorId, isOpen]);
+
+  const resetForm = () => {
+    setContributorId(defaultContributorId ?? "");
+    setAmount("");
+    setBankName("");
+    setAccountNumber("");
+    setAccountName("");
+    setNote("");
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    resetForm();
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!contributorId || !amount || !bankName || !accountNumber || !accountName) {
+      toast.error("Please fill in all withdrawal details");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await requestWithdrawal({
+        contributorId: contributorId as Id<"contributors">,
+        amount: Number(amount),
+        bankName: bankName.trim(),
+        accountNumber: accountNumber.trim(),
+        accountName: accountName.trim(),
+        note: note.trim() || undefined,
+      });
+
+      toast.success("Withdrawal request sent", {
+        description: `Ref: ${result.referenceNumber}. Admin has been notified by email and SMS.`,
+      });
+      handleClose();
+    } catch (error) {
+      const message =
+        error instanceof ConvexError
+          ? String((error.data as { message?: string })?.message ?? "")
+          : error instanceof Error
+            ? error.message
+            : "Failed to request withdrawal.";
+
+      toast.error("Could not submit withdrawal", {
+        description: message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(nextOpen) => {
+      if (!nextOpen) resetForm();
+      setOpen(nextOpen);
+    }}>
+      {open === undefined ? (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button variant="secondary" className="gap-2">
+              <ArrowRightLeft className="w-4 h-4" />
+              Request Withdrawal
+            </Button>
+          )}
+        </DialogTrigger>
+      ) : null}
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-serif">Request Withdrawal</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Contributor</Label>
+            <Select value={contributorId} onValueChange={setContributorId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select contributor" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeContributors.map((contributor) => (
+                  <SelectItem key={contributor._id} value={contributor._id}>
+                    {contributor.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="withdrawal-amount">Amount (₦)</Label>
+            <Input
+              id="withdrawal-amount"
+              type="number"
+              min="1"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="5000"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="withdrawal-bank-name">Bank Name</Label>
+            <Input
+              id="withdrawal-bank-name"
+              value={bankName}
+              onChange={(event) => setBankName(event.target.value)}
+              placeholder="Access Bank"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="withdrawal-account-name">Account Name</Label>
+            <Input
+              id="withdrawal-account-name"
+              value={accountName}
+              onChange={(event) => setAccountName(event.target.value)}
+              placeholder="Adebayo Musa"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="withdrawal-account-number">Account Number</Label>
+            <Input
+              id="withdrawal-account-number"
+              inputMode="numeric"
+              value={accountNumber}
+              onChange={(event) =>
+                setAccountNumber(event.target.value.replace(/\D/g, "").slice(0, 10))
+              }
+              placeholder="0123456789"
+              maxLength={10}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="withdrawal-note">Note (optional)</Label>
+            <Textarea
+              id="withdrawal-note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={2}
+              placeholder="Any extra details about this withdrawal request"
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            This request will be sent to admin by email and SMS for manual processing.
+          </p>
+
+          <Button
+            type="submit"
+            className="w-full gap-2"
+            disabled={loading || activeContributors.length === 0}
+          >
+            <ArrowRightLeft className="w-4 h-4" />
+            {loading ? "Sending request..." : "Submit withdrawal request"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

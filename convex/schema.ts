@@ -110,4 +110,30 @@ export default defineSchema({
     .index("by_contributor", ["contributorId"])
     .index("by_reference", ["referenceNumber"])
     .index("by_status", ["status"]),
+
+  withdrawal_requests: defineTable({
+    contributorId: v.id("contributors"),
+    agentId: v.id("users"),
+    amount: v.number(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    accountName: v.string(),
+    note: v.optional(v.string()),
+    requestedAt: v.string(),
+    referenceNumber: v.string(),
+    status: v.union(
+      v.literal("submitted"),
+      v.literal("processing"),
+      v.literal("paid"),
+      v.literal("rejected"),
+    ),
+    availableBalanceAtRequest: v.number(),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.string()),
+    reviewNote: v.optional(v.string()),
+  })
+    .index("by_agent_and_date", ["agentId", "requestedAt"])
+    .index("by_contributor_and_date", ["contributorId", "requestedAt"])
+    .index("by_reference", ["referenceNumber"])
+    .index("by_status", ["status"]),
 });

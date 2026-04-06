@@ -296,3 +296,63 @@ export const sendCollectionNotificationEmail = internalAction({
     }
   },
 });
+
+export const sendWithdrawalRequestAdminEmail = internalAction({
+  args: {
+    to: v.string(),
+    contributorName: v.string(),
+    contributorPhone: v.string(),
+    agentName: v.string(),
+    amount: v.number(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    accountName: v.string(),
+    referenceNumber: v.string(),
+    requestedAt: v.string(),
+    note: v.optional(v.string()),
+  },
+  handler: async (
+    _ctx,
+    {
+      to,
+      contributorName,
+      contributorPhone,
+      agentName,
+      amount,
+      bankName,
+      accountNumber,
+      accountName,
+      referenceNumber,
+      requestedAt,
+      note,
+    },
+  ) => {
+    try {
+      await sendEmail({
+        to,
+        subject: `OWODE Withdrawal Request — ₦${amount.toLocaleString()}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto;">
+            <h1 style="color: #166534;">New Withdrawal Request</h1>
+            <p>An agent has submitted a contributor withdrawal request for manual processing.</p>
+            <table style="margin: 16px 0; border-collapse: collapse; width: 100%;">
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor</td><td style="padding: 8px 0; font-weight: 600;">${escapeHtml(contributorName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor phone</td><td style="padding: 8px 0;">${escapeHtml(contributorPhone)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent</td><td style="padding: 8px 0;">${escapeHtml(agentName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Amount</td><td style="padding: 8px 0; font-weight: 600;">₦${amount.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Bank</td><td style="padding: 8px 0;">${escapeHtml(bankName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account name</td><td style="padding: 8px 0;">${escapeHtml(accountName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account number</td><td style="padding: 8px 0;">${escapeHtml(accountNumber)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Reference</td><td style="padding: 8px 0;">${escapeHtml(referenceNumber)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Requested at</td><td style="padding: 8px 0;">${escapeHtml(new Date(requestedAt).toLocaleString("en-NG"))}</td></tr>
+              ${note ? `<tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Note</td><td style="padding: 8px 0;">${escapeHtml(note)}</td></tr>` : ""}
+            </table>
+            <p style="color: #6b7280; font-size: 14px;">Please process this withdrawal and update the contributor accordingly.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error("Failed to send withdrawal request admin email:", error);
+    }
+  },
+});

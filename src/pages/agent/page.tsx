@@ -15,6 +15,7 @@ import DashboardStats from "./_components/dashboard-stats.tsx";
 import ContributorList from "./_components/contributor-list.tsx";
 import CollectionHistory from "./_components/collection-history.tsx";
 import RecordCollectionDialog from "./_components/record-collection-dialog.tsx";
+import RequestWithdrawalDialog from "./_components/request-withdrawal-dialog.tsx";
 
 export default function AgentDashboard() {
   const user = useQuery(api.users.getCurrentUser);
@@ -51,7 +52,10 @@ export default function AgentDashboard() {
             Welcome back, {user.name || "Agent"}
           </p>
         </div>
-        <RecordCollectionDialog />
+        <div className="flex flex-wrap gap-2">
+          <RequestWithdrawalDialog />
+          <RecordCollectionDialog />
+        </div>
       </div>
 
       {/* Summary cards */}

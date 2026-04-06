@@ -18,6 +18,15 @@ function normalizePhoneNumber(value: string, label: string): string {
   if (!normalized) {
     throw new Error(`${label} is empty`);
   }
+  if (normalized.startsWith("+")) {
+    return normalized;
+  }
+  if (normalized.startsWith("234")) {
+    return `+${normalized}`;
+  }
+  if (normalized.startsWith("0") && normalized.length === 11) {
+    return `+234${normalized.slice(1)}`;
+  }
   return normalized;
 }
 
@@ -138,6 +147,46 @@ export const sendCollectionSMS = internalAction({
       console.info("Collection SMS sent:", { to, sid: message.sid });
     } catch (error) {
       console.error("Failed to send collection SMS:", error);
+    }
+  },
+});
+
+export const sendWithdrawalRequestAdminSMS = internalAction({
+  args: {
+    to: v.string(),
+    contributorName: v.string(),
+    contributorPhone: v.string(),
+    agentName: v.string(),
+    amount: v.number(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    accountName: v.string(),
+    referenceNumber: v.string(),
+  },
+  handler: async (
+    _ctx,
+    {
+      to,
+      contributorName,
+      contributorPhone,
+      agentName,
+      amount,
+      bankName,
+      accountNumber,
+      accountName,
+      referenceNumber,
+    },
+  ) => {
+    try {
+      const client = getTwilioClient();
+      const message = await client.messages.create({
+        body: `OWODE withdrawal request: ${contributorName} (${contributorPhone}) via ${agentName}. Amount: \u20A6${amount.toLocaleString()}. Bank: ${bankName}. Acct: ${accountName} ${accountNumber}. Ref: ${referenceNumber}.`,
+        from: getFromNumber(),
+        to: normalizePhoneNumber(to, "Recipient phone number"),
+      });
+      console.info("Withdrawal request admin SMS sent:", { to, sid: message.sid });
+    } catch (error) {
+      console.error("Failed to send withdrawal request admin SMS:", error);
     }
   },
 });

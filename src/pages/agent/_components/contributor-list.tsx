@@ -48,10 +48,12 @@ import {
   ToggleRight,
   Phone,
   CalendarClock,
+  ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
 import AddContributorDialog from "./add-contributor-dialog.tsx";
+import RequestWithdrawalDialog from "./request-withdrawal-dialog.tsx";
 
 type Frequency = "daily" | "weekly" | "monthly";
 
@@ -89,6 +91,8 @@ export default function ContributorList() {
   const contributors = useQuery(api.contributors.listByAgent);
   const [editContributor, setEditContributor] =
     useState<Doc<"contributors"> | null>(null);
+  const [withdrawContributor, setWithdrawContributor] =
+    useState<Doc<"contributors"> | null>(null);
 
   return (
     <Card>
@@ -125,6 +129,7 @@ export default function ContributorList() {
                 key={c._id}
                 contributor={c}
                 onEdit={() => setEditContributor(c)}
+                onRequestWithdrawal={() => setWithdrawContributor(c)}
               />
             ))}
           </div>
@@ -138,6 +143,16 @@ export default function ContributorList() {
           onClose={() => setEditContributor(null)}
         />
       )}
+
+      {withdrawContributor && (
+        <RequestWithdrawalDialog
+          open={!!withdrawContributor}
+          onOpenChange={(open) => {
+            if (!open) setWithdrawContributor(null);
+          }}
+          defaultContributorId={withdrawContributor._id}
+        />
+      )}
     </Card>
   );
 }
@@ -145,9 +160,11 @@ export default function ContributorList() {
 function ContributorRow({
   contributor,
   onEdit,
+  onRequestWithdrawal,
 }: {
   contributor: Doc<"contributors">;
   onEdit: () => void;
+  onRequestWithdrawal: () => void;
 }) {
   const toggleStatus = useMutation(api.contributors.toggleStatus);
   const [toggling, setToggling] = useState(false);
@@ -217,6 +234,10 @@ function ContributorRow({
             <DropdownMenuItem onClick={onEdit}>
               <Pencil className="w-4 h-4 mr-2" />
               Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onRequestWithdrawal}>
+              <ArrowRightLeft className="w-4 h-4 mr-2" />
+              Request withdrawal
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleToggle} disabled={toggling}>
               {contributor.status === "active" ? (

@@ -321,8 +321,12 @@ export const claimAccount = mutation({
     // Take the first match (most common scenario: one contributor per phone)
     const contributor = unclaimed[0];
 
-    // Link both sides
-    await ctx.db.patch(contributor._id, { userId: user._id });
+    // Link both sides and backfill the contributor contact details from the signed-in user
+    await ctx.db.patch(contributor._id, {
+      userId: user._id,
+      phone: args.phone,
+      email: contributor.email ?? user.email,
+    });
     await ctx.db.patch(user._id, {
       role: "contributor",
       phone: args.phone,

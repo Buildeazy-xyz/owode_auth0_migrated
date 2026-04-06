@@ -70,6 +70,14 @@ export const record = mutation({
       note: args.note,
     });
 
+    const contributorCollections = await ctx.db
+      .query("collections")
+      .withIndex("by_contributor", (q) => q.eq("contributorId", args.contributorId))
+      .collect();
+    const totalSaved = contributorCollections.reduce((sum, item) => sum + item.amount, 0);
+    const contributionAmount = contributor.dailyAmount;
+    const frequency = contributor.frequency ?? "daily";
+
     // Send notification email to contributor if they have an email
     if (contributor.email) {
       await ctx.scheduler.runAfter(
@@ -80,6 +88,9 @@ export const record = mutation({
           contributorName: contributor.name,
           agentName: user.name ?? "Your Agent",
           amount: args.amount,
+          totalSaved,
+          contributionAmount,
+          frequency,
           referenceNumber,
           paymentMethod: args.paymentMethod,
         },
@@ -91,6 +102,9 @@ export const record = mutation({
       to: contributor.phone,
       contributorName: contributor.name,
       amount: args.amount,
+      totalSaved,
+      contributionAmount,
+      frequency,
       referenceNumber,
       paymentMethod: args.paymentMethod,
     });

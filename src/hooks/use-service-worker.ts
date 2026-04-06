@@ -5,6 +5,12 @@ export function useServiceWorker() {
   const toastShown = useRef(false);
 
   useEffect(() => {
+    // ❌ Disable service worker in development
+    if (!import.meta.env.PROD) {
+      console.log("Service Worker disabled in development");
+      return;
+    }
+
     if (!("serviceWorker" in navigator)) return;
 
     const showUpdateToast = () => {
@@ -13,7 +19,10 @@ export function useServiceWorker() {
 
       toast("A new version is available!", {
         duration: Infinity,
-        action: { label: "Refresh", onClick: () => window.location.reload() },
+        action: {
+          label: "Refresh",
+          onClick: () => window.location.reload(),
+        },
       });
     };
 
@@ -34,12 +43,17 @@ export function useServiceWorker() {
           if (!newWorker) return;
 
           newWorker.addEventListener("statechange", () => {
-            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+            if (
+              newWorker.state === "installed" &&
+              navigator.serviceWorker.controller
+            ) {
               showUpdateToast();
             }
           });
         });
       })
-      .catch((err) => console.log("Service Worker registration failed:", err));
+      .catch((err) =>
+        console.log("Service Worker registration failed:", err)
+      );
   }, []);
 }

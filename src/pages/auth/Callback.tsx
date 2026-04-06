@@ -1,53 +1,132 @@
-import { useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuthCallback } from "@usehercules/auth/react";
+import { useEffect, useState } from "react";
 import { useConvexAuth, useMutation } from "convex/react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "react-oidc-context";
 import { api } from "@/convex/_generated/api.js";
-import { Spinner } from "@/components/ui/spinner.tsx";
-import { Button } from "@/components/ui/button.tsx";
 
-export default function AuthCallback() {
+export default function CallbackPage() {
+  const auth = useAuth();
+  const { isLoading: isConvexLoading, isAuthenticated: isConvexAuthenticated } =
+    useConvexAuth();
   const navigate = useNavigate();
-  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const updateCurrentUser = useMutation(api.users.updateCurrentUser);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [isProvisioning, setIsProvisioning] = useState(false);
+  const [showTimeoutHelp, setShowTimeoutHelp] = useState(false);
 
-  const onSync = useCallback(async () => {
-    await updateCurrentUser();
-  }, [updateCurrentUser]);
+  useEffect(() => {
+    if (!auth.isLoading && !isConvexLoading) {
+      return;
+    }
 
-  const navigateHome = useCallback(
-    () => navigate("/", { replace: true }),
-    [navigate],
-  );
+    const timer = window.setTimeout(() => {
+      setShowTimeoutHelp(true);
+    }, 15000);
 
-  const { status, error, retry } = useAuthCallback({
-    isBackendAuthenticated: isConvexAuthenticated,
-    onSync,
-    onSuccess: navigateHome,
-    onNoAuthParams: navigateHome,
-  });
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [auth.isLoading, isConvexLoading]);
 
-  if (status === "error" && error) {
+  useEffect(() => {
+    if (auth.error) {
+      console.error("OIDC callback error:", auth.error);
+      return;
+    }
+
+    if (showTimeoutHelp && auth.isAuthenticated && !isConvexAuthenticated) {
+      setSetupError(
+        "Authentication is still waiting on the Convex backend. Please make sure `pnpm exec convex dev` is running, then try sign-in again.",
+      );
+      return;
+    }
+
+    if (auth.isLoading || isConvexLoading || isProvisioning || setupError) {
+      return;
+    }
+
+    if (!auth.isAuthenticated) {
+      navigate("/", { replace: true });
+      return;
+    }
+
+    if (!isConvexAuthenticated) {
+      return;
+    }
+
+    setIsProvisioning(true);
+    setSetupError(null);
+
+    void updateCurrentUser()
+      .then(() => {
+        navigate("/verify-account", { replace: true });
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to finish sign-in:", error);
+        setSetupError(
+          error instanceof Error
+            ? error.message
+            : "We could not finish setting up your account.",
+        );
+      })
+      .finally(() => {
+        setIsProvisioning(false);
+      });
+  }, [
+    auth.error,
+    auth.isAuthenticated,
+    auth.isLoading,
+    isConvexAuthenticated,
+    isConvexLoading,
+    isProvisioning,
+    navigate,
+    setupError,
+    showTimeoutHelp,
+    updateCurrentUser,
+  ]);
+
+  if (auth.error || setupError) {
+    const message = auth.error?.message?.includes(
+      "No matching state found in storage",
+    )
+      ? "Your sign-in session expired or was started from a different localhost port. Return home, open the current app URL, and click Sign In again."
+      : auth.error?.message?.includes("invalid refresh token") ||
+          auth.error?.message?.includes("Unknown or invalid refresh token")
+        ? "Auth0 rejected the saved refresh token. Return home and click Sign In again to start a fresh session."
+        : auth.error?.message ?? setupError;
+
     return (
-      <div className="flex flex-col items-center justify-center h-svh gap-6 px-4">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <p className="text-destructive font-medium">Something went wrong</p>
-          <p className="text-sm text-muted-foreground max-w-md">{error}</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="secondary" onClick={navigateHome}>
-            Return home
-          </Button>
-          <Button onClick={retry}>Try again</Button>
+      <div className="min-h-screen flex items-center justify-center px-6">
+        <div className="max-w-md text-center">
+          <h1 className="text-2xl font-bold mb-4">Sign-in failed</h1>
+          <p className="mb-6">{message}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              className="px-4 py-2 rounded bg-black text-white"
+              onClick={() => navigate("/", { replace: true })}
+            >
+              Return home
+            </button>
+            <button
+              className="px-4 py-2 rounded border"
+              onClick={() => window.location.reload()}
+            >
+              Try again
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-svh gap-4">
-      <Spinner className="size-8" />
-      <p className="text-sm text-muted-foreground">Loading...</p>
+    <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-2">
+          {isProvisioning ? "Setting up your account..." : "Signing you in..."}
+        </h1>
+        <p>Please wait a moment.</p>
+      </div>
     </div>
   );
 }

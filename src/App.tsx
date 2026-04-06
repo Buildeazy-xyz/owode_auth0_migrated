@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { DefaultProviders } from "./components/providers/default.tsx";
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 import AuthCallback from "./pages/auth/Callback.tsx";
+import VerifyAccountPage from "./pages/auth/VerifyAccount.tsx";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AppLayout from "./components/AppLayout.tsx";
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/verify-account" element={<VerifyAccountPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           {/* Protected routes with shared layout */}
           <Route element={<AppLayout />}>

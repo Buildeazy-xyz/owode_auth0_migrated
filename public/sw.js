@@ -7,20 +7,29 @@ self.addEventListener("install", (event) => {
     caches
       .open(CACHE_NAME)
       .then((cache) => cache.addAll(urlsToCache))
-      .then(() => self.skipWaiting()),
+      .then(() => self.skipWaiting())
   );
 });
 
 // Fetch event - network first, fall back to cache
 self.addEventListener("fetch", (event) => {
+  const requestUrl = new URL(event.request.url);
+
   // Only handle GET requests
   if (event.request.method !== "GET") {
     return;
   }
 
+  // Ignore unsupported schemes like chrome-extension:, moz-extension:, etc.
+  if (requestUrl.protocol !== "http:" && requestUrl.protocol !== "https:") {
+    return;
+  }
+
   // Handle navigation requests differently
   if (event.request.mode === "navigate") {
-    event.respondWith(fetch(event.request).catch(() => caches.match("/offline.html")));
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match("/offline.html"))
+    );
     return;
   }
 
@@ -28,14 +37,21 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (!response.ok) {
+        if (!response || !response.ok) {
           return response;
         }
+
         const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache).catch(() => {
+            // Ignore cache write failures
+          });
+        });
+
         return response;
       })
-      .catch(() => caches.match(event.request)),
+      .catch(() => caches.match(event.request))
   );
 });
 
@@ -44,16 +60,16 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((cacheNames) => {
-        return Promise.all(
+      .then((cacheNames) =>
+        Promise.all(
           cacheNames.map((cacheName) => {
             if (cacheName !== CACHE_NAME) {
               return caches.delete(cacheName);
             }
-          }),
-        );
-      })
-      .then(() => self.clients.claim()),
+          })
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
@@ -68,7 +84,7 @@ self.addEventListener("push", (event) => {
       if (!isAppInFocus) {
         return self.registration.showNotification(data.title, data.options);
       }
-    }),
+    })
   );
 });
 
@@ -82,6 +98,6 @@ self.addEventListener("notificationclick", (event) => {
         if ("focus" in client) return client.focus();
       }
       if (clients.openWindow) return clients.openWindow("/");
-    }),
+    })
   );
 });

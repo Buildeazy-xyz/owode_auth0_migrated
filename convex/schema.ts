@@ -16,6 +16,12 @@ export default defineSchema({
     /** Only the super admin can promote other users to admin */
     isSuperAdmin: v.optional(v.boolean()),
     phone: v.optional(v.string()),
+    /** App-level account verification state */
+    isVerified: v.optional(v.boolean()),
+    verifiedAt: v.optional(v.string()),
+    verificationCode: v.optional(v.string()),
+    verificationCodeExpiresAt: v.optional(v.string()),
+    verificationCodeSentAt: v.optional(v.string()),
     /** Links a contributor-role user to their contributor record */
     contributorId: v.optional(v.id("contributors")),
     /** Agent approval status — only relevant when role === "agent" */

@@ -2,7 +2,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
-import { Banknote, CalendarCheck, TrendingUp, Target } from "lucide-react";
+import { Banknote, CalendarCheck, TrendingUp, Target, Wallet } from "lucide-react";
 
 type Frequency = "daily" | "weekly" | "monthly";
 
@@ -26,6 +26,8 @@ export default function ContributorStats() {
   }
 
   const freq: Frequency = card.frequency ?? "daily";
+  const contributionSuffix =
+    freq === "daily" ? "/day" : freq === "weekly" ? "/week" : "/month";
 
   const stats = [
     {
@@ -36,11 +38,18 @@ export default function ContributorStats() {
       bg: "bg-primary/10",
     },
     {
+      label: "Current Contribution",
+      value: `₦${card.contributionAmount.toLocaleString()}${contributionSuffix}`,
+      icon: Wallet,
+      color: "text-green-600 dark:text-green-400",
+      bg: "bg-green-100 dark:bg-green-900/20",
+    },
+    {
       label: "Periods Paid",
       value: `${card.daysPaid}/${freq === "daily" ? card.daysInMonth : freq === "weekly" ? (card.weeksInPeriod ?? 4) : 12}`,
       icon: CalendarCheck,
-      color: "text-green-600 dark:text-green-400",
-      bg: "bg-green-100 dark:bg-green-900/20",
+      color: "text-emerald-600 dark:text-emerald-400",
+      bg: "bg-emerald-100 dark:bg-emerald-900/20",
     },
     {
       label: PERIOD_LABELS[freq],

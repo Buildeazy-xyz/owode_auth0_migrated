@@ -1,6 +1,5 @@
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
-import hercules from "@usehercules/vite";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
 
@@ -9,12 +8,13 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
+    strictPort: true,
     allowedHosts: true,
     hmr: {
       overlay: false,
     },
   },
-  plugins: [react(), tailwindcss(), hercules()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@/convex": path.resolve(__dirname, "./convex"),

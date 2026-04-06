@@ -38,6 +38,7 @@ type Step =
 
 function OnboardingContent() {
   const user = useQuery(api.users.getCurrentUser);
+  const updateCurrentUser = useMutation(api.users.updateCurrentUser);
   const setRole = useMutation(api.users.setRole);
   const claimAccount = useMutation(api.contributors.claimAccount);
   const submitVerification = useMutation(api.agentVerification.submit);
@@ -60,9 +61,23 @@ function OnboardingContent() {
   const [guarantorAddress, setGuarantorAddress] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Redirect if user already has a role
+  useEffect(() => {
+    if (user !== null) return;
+
+    void updateCurrentUser().catch((error) => {
+      console.error("Failed to create current user during onboarding:", error);
+    });
+  }, [updateCurrentUser, user]);
+
+  // Redirect if user must verify first or already has a role
   useEffect(() => {
     if (!user) return;
+
+    if (!(user.isVerified ?? false)) {
+      navigate("/verify-account", { replace: true });
+      return;
+    }
+
     if (user.role === "admin") {
       navigate("/admin", { replace: true });
     } else if (user.role === "agent") {
@@ -73,7 +88,7 @@ function OnboardingContent() {
     }
   }, [user, navigate]);
 
-  if (user === undefined || user === null) {
+  if (user === undefined || user === null || !(user.isVerified ?? false)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spinner className="size-8" />

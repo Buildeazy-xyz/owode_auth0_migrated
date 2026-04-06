@@ -1,4 +1,4 @@
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, Navigate } from "react-router-dom";
 import {
   Authenticated,
   Unauthenticated,
@@ -35,12 +35,34 @@ export default function AppLayout() {
         </div>
       </Unauthenticated>
       <Authenticated>
-        <AppNav />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Outlet />
-        </main>
+        <VerifiedAppLayout />
       </Authenticated>
     </div>
+  );
+}
+
+function VerifiedAppLayout() {
+  const user = useQuery(api.users.getCurrentUser);
+
+  if (user === undefined || user === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Spinner className="size-8" />
+      </div>
+    );
+  }
+
+  if (!(user.isVerified ?? false)) {
+    return <Navigate to="/verify-account" replace />;
+  }
+
+  return (
+    <>
+      <AppNav />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Outlet />
+      </main>
+    </>
   );
 }
 

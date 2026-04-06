@@ -307,6 +307,23 @@ export const reject = mutation({
     });
     await ctx.db.patch(verification.userId, { agentStatus: "rejected" });
 
+    const agentUser = await ctx.db.get(verification.userId);
+    if (agentUser?.email) {
+      await ctx.scheduler.runAfter(0, internal.emails.sendAgentRejectionEmail, {
+        to: agentUser.email,
+        agentName: agentUser.name ?? "Agent",
+        reason: args.reason,
+      });
+    }
+
+    if (verification.phone) {
+      await ctx.scheduler.runAfter(0, internal.sms.sendAgentRejectionSMS, {
+        to: verification.phone,
+        agentName: agentUser?.name ?? "Agent",
+        reason: args.reason,
+      });
+    }
+
     return args.verificationId;
   },
 });

@@ -1,8 +1,34 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /** The sole super-admin email address */
 const SUPER_ADMIN_EMAIL = "olusegunolurin365@gmail.com";
+const VERIFICATION_TTL_MS = 10 * 60 * 1000;
+
+function getIdentityPhone(identity: Record<string, unknown>): string | undefined {
+  const value = identity.phone ?? identity.phoneNumber ?? identity.phone_number;
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function maskEmail(email?: string) {
+  if (!email) return null;
+  const [name, domain] = email.split("@");
+  if (!name || !domain) return email;
+  const visible = name.slice(0, Math.min(2, name.length));
+  return `${visible}${"*".repeat(Math.max(1, name.length - visible.length))}@${domain}`;
+}
+
+function maskPhone(phone?: string) {
+  if (!phone) return null;
+  const trimmed = phone.replace(/\s+/g, "");
+  if (trimmed.length <= 4) return trimmed;
+  return `${trimmed.slice(0, 4)}${"*".repeat(Math.max(1, trimmed.length - 6))}${trimmed.slice(-2)}`;
+}
+
+function generateVerificationCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 export const updateCurrentUser = mutation({
   args: {},
@@ -15,6 +41,7 @@ export const updateCurrentUser = mutation({
       });
     }
 
+    const identityPhone = getIdentityPhone(identity as Record<string, unknown>);
     const user = await ctx.db
       .query("users")
       .withIndex("by_token", (q) =>
@@ -22,15 +49,35 @@ export const updateCurrentUser = mutation({
       )
       .unique();
     if (user !== null) {
+      const patch: {
+        name?: string;
+        email?: string;
+        phone?: string;
+        isSuperAdmin?: boolean;
+        role?: "admin";
+      } = {};
+
+      if (identity.name && identity.name !== user.name) {
+        patch.name = identity.name;
+      }
+      if (identity.email && identity.email !== user.email) {
+        patch.email = identity.email;
+      }
+      if (identityPhone && identityPhone !== user.phone) {
+        patch.phone = identityPhone;
+      }
+
       // Auto-promote super admin on every login (ensures the flag stays set)
       if (
         identity.email === SUPER_ADMIN_EMAIL &&
         (!user.isSuperAdmin || user.role !== "admin")
       ) {
-        await ctx.db.patch(user._id, {
-          isSuperAdmin: true,
-          role: "admin",
-        });
+        patch.isSuperAdmin = true;
+        patch.role = "admin";
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(user._id, patch);
       }
       return user._id;
     }
@@ -40,7 +87,9 @@ export const updateCurrentUser = mutation({
     return await ctx.db.insert("users", {
       name: identity.name,
       email: identity.email,
+      phone: identityPhone,
       tokenIdentifier: identity.tokenIdentifier,
+      isVerified: false,
       ...(isSuperAdmin ? { isSuperAdmin: true, role: "admin" } : {}),
     });
   },
@@ -63,6 +112,186 @@ export const getCurrentUser = query({
       )
       .unique();
     return user;
+  },
+});
+
+export const getVerificationStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User not found",
+      });
+    }
+
+    return {
+      isVerified: user.isVerified ?? false,
+      verifiedAt: user.verifiedAt ?? null,
+      maskedEmail: maskEmail(user.email),
+      maskedPhone: maskPhone(user.phone),
+      verificationCodeSentAt: user.verificationCodeSentAt ?? null,
+      verificationCodeExpiresAt: user.verificationCodeExpiresAt ?? null,
+    };
+  },
+});
+
+export const sendVerificationCode = mutation({
+  args: { phone: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User not found",
+      });
+    }
+
+    const submittedPhone = args.phone?.trim();
+    const deliveryPhone = submittedPhone || user.phone;
+
+    if (user.isVerified) {
+      return {
+        alreadyVerified: true,
+        maskedEmail: maskEmail(user.email),
+        maskedPhone: maskPhone(deliveryPhone),
+      };
+    }
+
+    if (!user.email && !deliveryPhone) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Add your phone number or email before requesting a verification code.",
+      });
+    }
+
+    const code = generateVerificationCode();
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MS).toISOString();
+
+    await ctx.db.patch(user._id, {
+      phone: deliveryPhone,
+      verificationCode: code,
+      verificationCodeSentAt: now,
+      verificationCodeExpiresAt: expiresAt,
+    });
+
+    const displayName = user.name?.trim() || "there";
+
+    if (user.email) {
+      await ctx.scheduler.runAfter(0, internal.emails.sendAccountVerificationEmail, {
+        to: user.email,
+        name: displayName,
+        code,
+      });
+    }
+
+    if (deliveryPhone) {
+      await ctx.scheduler.runAfter(0, internal.sms.sendAccountVerificationSMS, {
+        to: deliveryPhone,
+        name: displayName,
+        code,
+      });
+    }
+
+    return {
+      maskedEmail: maskEmail(user.email),
+      maskedPhone: maskPhone(deliveryPhone),
+      expiresAt,
+    };
+  },
+});
+
+export const verifyAccountCode = mutation({
+  args: { code: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "User not found",
+      });
+    }
+
+    if (user.isVerified) {
+      return { verified: true };
+    }
+
+    const submittedCode = args.code.trim();
+    if (!submittedCode) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Please enter the verification code.",
+      });
+    }
+
+    if (!user.verificationCode || !user.verificationCodeExpiresAt) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "No verification code was found. Please request a new code.",
+      });
+    }
+
+    if (new Date(user.verificationCodeExpiresAt).getTime() < Date.now()) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "This verification code has expired. Please request a new one.",
+      });
+    }
+
+    if (submittedCode !== user.verificationCode) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "The verification code you entered is incorrect.",
+      });
+    }
+
+    await ctx.db.patch(user._id, {
+      isVerified: true,
+      verifiedAt: new Date().toISOString(),
+      verificationCode: undefined,
+      verificationCodeExpiresAt: undefined,
+      verificationCodeSentAt: undefined,
+    });
+
+    return { verified: true };
   },
 });
 

@@ -4,15 +4,26 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
-const ADMIN_WITHDRAWAL_EMAIL =
-  process.env.ADMIN_WITHDRAWAL_EMAIL ?? "iyiolaqozeem1@gmail.com";
-const ADMIN_WITHDRAWAL_PHONE =
-  process.env.ADMIN_WITHDRAWAL_PHONE ?? "08085806038";
+const ADMIN_WITHDRAWAL_EMAIL = "iyiolaqozeem1@gmail.com";
+const ADMIN_WITHDRAWAL_PHONE = "08085806038";
 
 function generateWithdrawalReference(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).slice(2, 6).toUpperCase();
   return `WDL-${timestamp}-${random}`;
+}
+
+function calculateWithdrawalTerms(dailyAmount: number, contributionDays: number, amount: number) {
+  const contributionFee = Math.max(0, Math.round(dailyAmount / 2));
+  const penaltyFee = contributionDays < 26 ? contributionFee : 0;
+  const payoutAmount = Math.max(0, amount - contributionFee - penaltyFee);
+
+  return {
+    contributionDays,
+    contributionFee,
+    penaltyFee,
+    payoutAmount,
+  };
 }
 
 async function requireAgent(
@@ -35,6 +46,32 @@ async function requireAgent(
     throw new ConvexError({
       code: "FORBIDDEN",
       message: "Only agents can request withdrawals",
+    });
+  }
+
+  return user;
+}
+
+async function requireAdmin(
+  ctx: Pick<MutationCtx | QueryCtx, "auth" | "db">,
+): Promise<Doc<"users">> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new ConvexError({
+      code: "UNAUTHENTICATED",
+      message: "User not logged in",
+    });
+  }
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+    .unique();
+
+  if (!user || user.role !== "admin") {
+    throw new ConvexError({
+      code: "FORBIDDEN",
+      message: "Only admins can review withdrawals",
     });
   }
 
@@ -94,16 +131,34 @@ export const requestWithdrawal = mutation({
       )
       .collect();
 
-    const outstandingAmount = previousRequests
-      .filter((request) => request.status === "submitted" || request.status === "processing")
+    const consumedAmount = previousRequests
+      .filter(
+        (request) =>
+          request.status === "submitted" ||
+          request.status === "processing" ||
+          request.status === "paid",
+      )
       .reduce((sum, request) => sum + request.amount, 0);
 
-    const availableBalance = Math.max(0, totalSaved - outstandingAmount);
+    const availableBalance = Math.max(0, totalSaved - consumedAmount);
 
     if (amount > availableBalance) {
       throw new ConvexError({
         code: "BAD_REQUEST",
         message: `Withdrawal amount exceeds the contributor's available balance of ₦${availableBalance.toLocaleString()}`,
+      });
+    }
+
+    const contributionDays = collections.length;
+    const { contributionFee, penaltyFee, payoutAmount } =
+      calculateWithdrawalTerms(contributor.dailyAmount, contributionDays, amount);
+
+    if (payoutAmount <= 0) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: `Withdrawal amount must be greater than the total fees of ₦${(
+          contributionFee + penaltyFee
+        ).toLocaleString()}`,
       });
     }
 
@@ -122,6 +177,10 @@ export const requestWithdrawal = mutation({
       referenceNumber,
       status: "submitted",
       availableBalanceAtRequest: availableBalance,
+      contributionDaysAtRequest: contributionDays,
+      contributionFee,
+      penaltyFee,
+      payoutAmount,
     });
 
     await ctx.scheduler.runAfter(0, internal.emails.sendWithdrawalRequestAdminEmail, {
@@ -136,6 +195,10 @@ export const requestWithdrawal = mutation({
       referenceNumber,
       requestedAt,
       note,
+      contributionDays,
+      contributionFee,
+      penaltyFee,
+      payoutAmount,
     });
 
     await ctx.scheduler.runAfter(0, internal.sms.sendWithdrawalRequestAdminSMS, {
@@ -148,12 +211,20 @@ export const requestWithdrawal = mutation({
       accountNumber,
       accountName,
       referenceNumber,
+      contributionDays,
+      contributionFee,
+      penaltyFee,
+      payoutAmount,
     });
 
     return {
       requestId,
       referenceNumber,
       availableBalance,
+      contributionDays,
+      contributionFee,
+      penaltyFee,
+      payoutAmount,
       remainingBalance: Math.max(0, availableBalance - amount),
     };
   },
@@ -180,5 +251,82 @@ export const listByAgent = query({
         };
       }),
     );
+  },
+});
+
+export const listForAdmin = query({
+  args: {
+    statusFilter: v.optional(
+      v.union(
+        v.literal("submitted"),
+        v.literal("processing"),
+        v.literal("paid"),
+        v.literal("rejected"),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const requests = args.statusFilter
+      ? await ctx.db
+          .query("withdrawal_requests")
+          .withIndex("by_status", (q) => q.eq("status", args.statusFilter!))
+          .order("desc")
+          .take(100)
+      : await ctx.db.query("withdrawal_requests").order("desc").take(100);
+
+    return await Promise.all(
+      requests.map(async (request) => {
+        const contributor = await ctx.db.get(request.contributorId);
+        const agent = await ctx.db.get(request.agentId);
+        return {
+          ...request,
+          contributorName: contributor?.name ?? "Unknown",
+          contributorPhone: contributor?.phone ?? "",
+          agentName: agent?.name ?? "Unknown Agent",
+        };
+      }),
+    );
+  },
+});
+
+export const reviewRequest = mutation({
+  args: {
+    requestId: v.id("withdrawal_requests"),
+    action: v.union(
+      v.literal("processing"),
+      v.literal("paid"),
+      v.literal("rejected"),
+    ),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const request = await ctx.db.get(args.requestId);
+
+    if (!request) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Withdrawal request not found",
+      });
+    }
+
+    if (request.status === "paid" && args.action === "paid") {
+      return { status: request.status };
+    }
+
+    await ctx.db.patch(args.requestId, {
+      status: args.action,
+      reviewedBy: admin._id,
+      reviewedAt: new Date().toISOString(),
+      reviewNote: args.note?.trim() || undefined,
+    });
+
+    return {
+      status: args.action,
+      payoutAmount: request.payoutAmount ?? request.amount,
+      deductedFromCompanyTotal: args.action === "paid",
+    };
   },
 });

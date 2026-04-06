@@ -94,7 +94,9 @@ export default function RequestWithdrawalDialog({
       });
 
       toast.success("Withdrawal request sent", {
-        description: `Ref: ${result.referenceNumber}. Admin has been notified by email and SMS.`,
+        description: `Ref: ${result.referenceNumber}. Pay out: ₦${result.payoutAmount.toLocaleString()} after ₦${(
+          result.contributionFee + result.penaltyFee
+        ).toLocaleString()} in fees. Admin has been notified.`,
       });
       handleClose();
     } catch (error) {
@@ -212,7 +214,7 @@ export default function RequestWithdrawalDialog({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            This request will be sent to admin by email and SMS for manual processing.
+            Each recorded contribution counts as one contribution day. Requests below 26 counted days pay both a contribution fee and a penalty fee; from 26 days upward only the contribution fee is applied. This request will also appear on the admin dashboard.
           </p>
 
           <Button

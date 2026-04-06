@@ -310,6 +310,10 @@ export const sendWithdrawalRequestAdminEmail = internalAction({
     referenceNumber: v.string(),
     requestedAt: v.string(),
     note: v.optional(v.string()),
+    contributionDays: v.number(),
+    contributionFee: v.number(),
+    penaltyFee: v.number(),
+    payoutAmount: v.number(),
   },
   handler: async (
     _ctx,
@@ -325,6 +329,10 @@ export const sendWithdrawalRequestAdminEmail = internalAction({
       referenceNumber,
       requestedAt,
       note,
+      contributionDays,
+      contributionFee,
+      penaltyFee,
+      payoutAmount,
     },
   ) => {
     try {
@@ -339,7 +347,11 @@ export const sendWithdrawalRequestAdminEmail = internalAction({
               <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor</td><td style="padding: 8px 0; font-weight: 600;">${escapeHtml(contributorName)}</td></tr>
               <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor phone</td><td style="padding: 8px 0;">${escapeHtml(contributorPhone)}</td></tr>
               <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent</td><td style="padding: 8px 0;">${escapeHtml(agentName)}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Amount</td><td style="padding: 8px 0; font-weight: 600;">₦${amount.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Requested amount</td><td style="padding: 8px 0; font-weight: 600;">₦${amount.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contribution count</td><td style="padding: 8px 0;">${contributionDays} day(s)</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contribution fee</td><td style="padding: 8px 0;">₦${contributionFee.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Penalty fee</td><td style="padding: 8px 0;">₦${penaltyFee.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Pay out to contributor</td><td style="padding: 8px 0; font-weight: 600; color: #166534;">₦${payoutAmount.toLocaleString()}</td></tr>
               <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Bank</td><td style="padding: 8px 0;">${escapeHtml(bankName)}</td></tr>
               <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account name</td><td style="padding: 8px 0;">${escapeHtml(accountName)}</td></tr>
               <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account number</td><td style="padding: 8px 0;">${escapeHtml(accountNumber)}</td></tr>

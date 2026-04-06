@@ -36,12 +36,12 @@ export default function PlatformStats() {
       detail: `${stats.todayCount} collection${stats.todayCount === 1 ? "" : "s"} today`,
     },
     {
-      label: "All-time Volume",
+      label: "Company Balance",
       value: `₦${stats.totalAmount.toLocaleString()}`,
       icon: Banknote,
       color: "text-accent-foreground",
       bg: "bg-accent/20",
-      detail: `${stats.totalCollections} total collections`,
+      detail: `Gross ₦${stats.grossTotalAmount.toLocaleString()} • Paid out ₦${stats.paidWithdrawalsTotal.toLocaleString()}`,
     },
     {
       label: "Cash Collected",
@@ -58,6 +58,14 @@ export default function PlatformStats() {
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-100 dark:bg-blue-900/20",
       detail: "Via bank apps",
+    },
+    {
+      label: "Withdrawal Requests",
+      value: stats.withdrawalRequestCount.toString(),
+      icon: ArrowRightLeft,
+      color: "text-orange-600 dark:text-orange-400",
+      bg: "bg-orange-100 dark:bg-orange-900/20",
+      detail: "Awaiting admin action",
     },
     {
       label: "Active Agents",
@@ -100,7 +108,7 @@ export default function PlatformStats() {
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
               <div
-                className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center flex-shrink-0`}
+                className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center shrink-0`}
               >
                 <card.icon className={`w-5 h-5 ${card.color}`} />
               </div>

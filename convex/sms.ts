@@ -162,6 +162,10 @@ export const sendWithdrawalRequestAdminSMS = internalAction({
     accountNumber: v.string(),
     accountName: v.string(),
     referenceNumber: v.string(),
+    contributionDays: v.number(),
+    contributionFee: v.number(),
+    penaltyFee: v.number(),
+    payoutAmount: v.number(),
   },
   handler: async (
     _ctx,
@@ -175,12 +179,16 @@ export const sendWithdrawalRequestAdminSMS = internalAction({
       accountNumber,
       accountName,
       referenceNumber,
+      contributionDays,
+      contributionFee,
+      penaltyFee,
+      payoutAmount,
     },
   ) => {
     try {
       const client = getTwilioClient();
       const message = await client.messages.create({
-        body: `OWODE withdrawal request: ${contributorName} (${contributorPhone}) via ${agentName}. Amount: \u20A6${amount.toLocaleString()}. Bank: ${bankName}. Acct: ${accountName} ${accountNumber}. Ref: ${referenceNumber}.`,
+        body: `OWODE withdrawal: ${contributorName} (${contributorPhone}) via ${agentName}. Req: \u20A6${amount.toLocaleString()}, days: ${contributionDays}, fees: \u20A6${(contributionFee + penaltyFee).toLocaleString()}, pay: \u20A6${payoutAmount.toLocaleString()}. ${bankName} ${accountName} ${accountNumber}. Ref: ${referenceNumber}.`,
         from: getFromNumber(),
         to: normalizePhoneNumber(to, "Recipient phone number"),
       });

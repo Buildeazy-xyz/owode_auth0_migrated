@@ -4,12 +4,13 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
-import { ShieldCheck, Users, ClipboardList, UserCheck, Crown } from "lucide-react";
+import { ShieldCheck, Users, ClipboardList, UserCheck, Crown, ArrowRightLeft } from "lucide-react";
 import PlatformStats from "./_components/platform-stats.tsx";
 import AgentList from "./_components/agent-list.tsx";
 import CollectionsTable from "./_components/collections-table.tsx";
 import VerificationQueue from "./_components/verification-queue.tsx";
 import UserManagement from "./_components/user-management.tsx";
+import WithdrawalsTable from "./_components/withdrawals-table.tsx";
 
 export default function AdminDashboard() {
   const user = useQuery(api.users.getCurrentUser);
@@ -71,6 +72,10 @@ export default function AdminDashboard() {
             <Users className="w-4 h-4" />
             Agents
           </TabsTrigger>
+          <TabsTrigger value="withdrawals" className="gap-1.5">
+            <ArrowRightLeft className="w-4 h-4" />
+            Withdrawals
+          </TabsTrigger>
           {isSuperAdmin && (
             <TabsTrigger value="users" className="gap-1.5">
               <Crown className="w-4 h-4" />
@@ -86,6 +91,9 @@ export default function AdminDashboard() {
         </TabsContent>
         <TabsContent value="agents" className="mt-4">
           <AgentList />
+        </TabsContent>
+        <TabsContent value="withdrawals" className="mt-4">
+          <WithdrawalsTable />
         </TabsContent>
         {isSuperAdmin && (
           <TabsContent value="users" className="mt-4">

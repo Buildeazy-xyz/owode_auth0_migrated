@@ -59,12 +59,26 @@ export const getPlatformStats = query({
       .query("collections")
       .order("desc")
       .take(8000);
+    const allWithdrawals = await ctx.db
+      .query("withdrawal_requests")
+      .order("desc")
+      .take(8000);
 
     const todayCollections = allCollections.filter(
       (c) => c.collectedAt >= todayStart,
     );
-    const todayTotal = todayCollections.reduce((s, c) => s + c.amount, 0);
-    const totalAmount = allCollections.reduce((s, c) => s + c.amount, 0);
+    const grossTodayTotal = todayCollections.reduce((s, c) => s + c.amount, 0);
+    const grossTotalAmount = allCollections.reduce((s, c) => s + c.amount, 0);
+
+    const paidWithdrawalsTotal = allWithdrawals
+      .filter((w) => w.status === "paid")
+      .reduce((sum, w) => sum + (w.payoutAmount ?? w.amount), 0);
+    const paidWithdrawalsToday = allWithdrawals
+      .filter((w) => w.status === "paid" && (w.reviewedAt ?? "") >= todayStart)
+      .reduce((sum, w) => sum + (w.payoutAmount ?? w.amount), 0);
+
+    const todayTotal = Math.max(0, grossTodayTotal - paidWithdrawalsToday);
+    const totalAmount = Math.max(0, grossTotalAmount - paidWithdrawalsTotal);
 
     const pendingCount = allCollections.filter(
       (c) => c.status === "pending",
@@ -83,12 +97,19 @@ export const getPlatformStats = query({
       .filter((c) => c.paymentMethod === "bank_transfer")
       .reduce((s, c) => s + c.amount, 0);
 
+    const withdrawalRequestCount = allWithdrawals.filter(
+      (w) => w.status === "submitted" || w.status === "processing",
+    ).length;
+
     return {
       agentCount: agents.length,
       contributorCount: contributors.length,
       activeContributorCount: activeContributors,
       totalCollections: allCollections.length,
       totalAmount,
+      grossTotalAmount,
+      paidWithdrawalsTotal,
+      withdrawalRequestCount,
       todayTotal,
       todayCount: todayCollections.length,
       pendingCount,

@@ -155,7 +155,19 @@ export const getMyVerification = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .first();
 
-    return verification;
+    if (!verification) {
+      return null;
+    }
+
+    const govIdUrl = await ctx.storage.getUrl(verification.govIdStorageId);
+
+    return {
+      ...verification,
+      userName: user.name ?? "",
+      userEmail: user.email ?? "",
+      userPhone: user.phone ?? verification.phone,
+      govIdUrl,
+    };
   },
 });
 

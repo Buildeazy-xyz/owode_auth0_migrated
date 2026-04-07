@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Spinner } from "@/components/ui/spinner.tsx";
+import { Skeleton } from "@/components/ui/skeleton.tsx";
 import {
   Card,
   CardContent,
@@ -10,7 +11,18 @@ import {
   CardTitle,
 } from "@/components/ui/card.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
-import { Clock, ShieldCheck, XCircle, AlertTriangle } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock,
+  ExternalLink,
+  FileBadge2,
+  Mail,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  UserRound,
+  XCircle,
+} from "lucide-react";
 import DashboardStats from "./_components/dashboard-stats.tsx";
 import ContributorList from "./_components/contributor-list.tsx";
 import CollectionHistory from "./_components/collection-history.tsx";
@@ -61,6 +73,15 @@ export default function AgentDashboard() {
       {/* Summary cards */}
       <DashboardStats />
 
+      <AgentRegistrationCard
+        user={{
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+        }}
+        verification={verification as AgentVerificationDetails | null | undefined}
+      />
+
       {/* Two-column layout for lists */}
       <div className="grid lg:grid-cols-2 gap-6">
         <CollectionHistory />
@@ -73,6 +94,20 @@ export default function AgentDashboard() {
 // ─── Pending approval screen ──────────────────────────────────────
 
 type VerificationStatus = "pending" | "under_review" | "approved" | "rejected";
+
+type AgentVerificationDetails = {
+  status?: VerificationStatus;
+  phone?: string;
+  guarantorName?: string;
+  guarantorPhone?: string;
+  guarantorAddress?: string;
+  submittedAt: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  govIdUrl?: string | null;
+  userName?: string;
+  userEmail?: string;
+};
 
 const STATUS_CONFIG: Record<
   string,
@@ -118,14 +153,14 @@ function PendingApprovalScreen({
   verification,
 }: {
   status: VerificationStatus | undefined;
-  verification: { rejectionReason?: string; submittedAt: string } | null | undefined;
+  verification: AgentVerificationDetails | null | undefined;
 }) {
   const config = STATUS_CONFIG[status ?? "pending"] ?? STATUS_CONFIG.pending;
   const Icon = config.icon;
 
   return (
-    <div className="flex items-center justify-center py-20 px-4">
-      <Card className="max-w-md w-full text-center">
+    <div className="space-y-6 py-20 px-4">
+      <Card className="max-w-md w-full mx-auto text-center">
         <CardHeader>
           <div
             className={`w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-2`}
@@ -147,7 +182,7 @@ function PendingApprovalScreen({
           {status === "rejected" && verification?.rejectionReason && (
             <div className="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-left">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-xs font-medium text-red-800 dark:text-red-300">
                     Reason for rejection
@@ -172,6 +207,137 @@ function PendingApprovalScreen({
           )}
         </CardContent>
       </Card>
+
+      <div className="mx-auto max-w-3xl">
+        <AgentRegistrationCard verification={verification} compact />
+      </div>
+    </div>
+  );
+}
+
+function AgentRegistrationCard({
+  user,
+  verification,
+  compact = false,
+}: {
+  user?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  verification: AgentVerificationDetails | null | undefined;
+  compact?: boolean;
+}) {
+  if (verification === undefined) {
+    return <Skeleton className="h-48 w-full rounded-xl" />;
+  }
+
+  if (!verification) {
+    return null;
+  }
+
+  const statusConfig =
+    STATUS_CONFIG[verification.status ?? "pending"] ?? STATUS_CONFIG.pending;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-serif">
+          {compact ? "Submitted Registration Details" : "Your Registration / Verification Details"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className={`text-xs ${statusConfig.badgeClass}`}>
+            {verification.status ?? "pending"}
+          </Badge>
+          {verification.reviewedAt && (
+            <span className="text-xs text-muted-foreground">
+              Reviewed on {new Date(verification.reviewedAt).toLocaleDateString("en-NG")}
+            </span>
+          )}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <DetailItem
+            icon={UserRound}
+            label="Full name"
+            value={verification.userName || user?.name || "Not provided"}
+          />
+          <DetailItem
+            icon={Mail}
+            label="Email"
+            value={verification.userEmail || user?.email || "Not provided"}
+          />
+          <DetailItem
+            icon={Phone}
+            label="Phone number"
+            value={verification.phone || user?.phone || "Not provided"}
+          />
+          <DetailItem
+            icon={UserRound}
+            label="Guarantor name"
+            value={verification.guarantorName || "Not provided"}
+          />
+          <DetailItem
+            icon={Phone}
+            label="Guarantor phone"
+            value={verification.guarantorPhone || "Not provided"}
+          />
+          <DetailItem
+            icon={FileBadge2}
+            label="Submitted on"
+            value={new Date(verification.submittedAt).toLocaleDateString("en-NG", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          />
+        </div>
+
+        <div className="rounded-lg bg-muted/50 p-3">
+          <div className="mb-1 flex items-center gap-2 text-sm font-medium">
+            <MapPin className="h-4 w-4 text-primary" />
+            Guarantor address
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {verification.guarantorAddress || "Not provided"}
+          </p>
+        </div>
+
+        {verification.govIdUrl && (
+          <a
+            href={verification.govIdUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+          >
+            <FileBadge2 className="h-4 w-4" />
+            View uploaded government ID
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DetailItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof UserRound;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg bg-muted/50 p-3">
+      <div className="mb-1 flex items-center gap-2 text-sm font-medium">
+        <Icon className="h-4 w-4 text-primary" />
+        {label}
+      </div>
+      <p className="text-sm text-muted-foreground wrap-break-word">{value}</p>
     </div>
   );
 }

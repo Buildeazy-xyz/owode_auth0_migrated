@@ -6,31 +6,31 @@ const TEAM = [
     name: "Olusegun Oyero Olurin",
     role: "Chief Vision Officer / Chief Technology Officer",
     description: "Provides direction, strategy, and long-term vision.",
-    photo: undefined,
+    photo: "/images/team/olusegun.png",
   },
   {
     name: "Itunu-Oluwa Olurin",
     role: "Chief Executive Officer",
     description: "Leads operations and ensures excellent service delivery.",
-    photo: undefined,
+    photo: "/images/team/itunu.png",
   },
   {
     name: "Mary Oladuni Abiona",
     role: "Operations Manager",
     description: "Oversees daily activities and customer experience.",
-    photo: undefined,
+    photo: "/images/team/mary.png",
   },
   {
     name: "Aminat Tolani Iyiola",
     role: "Assistant Administration Manager",
     description: "Supports coordination and administrative systems.",
-    photo: undefined,
+    photo: "/images/team/aminat.png",
   },
   {
     name: "Adewale Qozeem",
     role: "Assistant Technology Officer",
     description: "Supports digital systems and platform development.",
-    photo: undefined,
+    photo: "/images/team/adewale.png",
   },
 ];
 

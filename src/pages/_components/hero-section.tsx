@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { ArrowRight, Shield, Bell, Smartphone } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 
-const HERO_IMAGE = "/icon/icon-512.png";
+const HERO_IMAGE = "/images/hero.png";
 
 const MINI_STATS = [
   { label: "Contributors", value: "700+" },

@@ -1,59 +1,23 @@
-import { useEffect, useRef } from "react";
-import { toast } from "sonner";
+import { useEffect } from "react";
 
 export function useServiceWorker() {
-  const toastShown = useRef(false);
-
   useEffect(() => {
-    // ❌ Disable service worker in development
-    if (!import.meta.env.PROD) {
-      console.log("Service Worker disabled in development");
-      return;
-    }
-
     if (!("serviceWorker" in navigator)) return;
 
-    const showUpdateToast = () => {
-      if (toastShown.current) return;
-      toastShown.current = true;
+    void navigator.serviceWorker
+      .getRegistrations()
+      .then(async (registrations) => {
+        await Promise.all(
+          registrations.map((registration) => registration.unregister()),
+        );
 
-      toast("A new version is available!", {
-        duration: Infinity,
-        action: {
-          label: "Refresh",
-          onClick: () => window.location.reload(),
-        },
-      });
-    };
-
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((registration) => {
-        console.log("Service Worker registered:", registration);
-
-        // Check if update is already waiting
-        if (registration.waiting) {
-          showUpdateToast();
-          return;
+        if ("caches" in window) {
+          const cacheKeys = await caches.keys();
+          await Promise.all(cacheKeys.map((key) => caches.delete(key)));
         }
-
-        // Listen for new updates
-        registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing;
-          if (!newWorker) return;
-
-          newWorker.addEventListener("statechange", () => {
-            if (
-              newWorker.state === "installed" &&
-              navigator.serviceWorker.controller
-            ) {
-              showUpdateToast();
-            }
-          });
-        });
       })
-      .catch((err) =>
-        console.log("Service Worker registration failed:", err)
-      );
+      .catch((error) => {
+        console.log("Service worker cleanup failed:", error);
+      });
   }, []);
 }

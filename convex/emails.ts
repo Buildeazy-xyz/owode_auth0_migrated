@@ -174,6 +174,30 @@ export const sendAgentApprovalEmail = internalAction({
   },
 });
 
+export const sendAdminAccessGrantedEmail = internalAction({
+  args: { to: v.string(), name: v.string() },
+  handler: async (_ctx, { to, name }) => {
+    try {
+      await sendEmail({
+        to,
+        subject: "Your OWODE Admin Access Is Ready",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+            <h1 style="color: #166534;">Hello ${escapeHtml(name)},</h1>
+            <p>Your <strong>OWODE admin access</strong> has been enabled.</p>
+            <p>You can now sign in with your email address and manage agents, contributors, collections, and withdrawal requests from the admin dashboard.</p>
+            <br />
+            <p style="color: #6b7280; font-size: 14px;">— The OWODE Team</p>
+            <p style="color: #9ca3af; font-size: 12px;">Your Money is Safe.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error("Failed to send admin access email:", error);
+    }
+  },
+});
+
 /** Notify an agent that their verification was rejected */
 export const sendAgentRejectionEmail = internalAction({
   args: { to: v.string(), agentName: v.string(), reason: v.string() },

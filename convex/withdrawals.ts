@@ -4,8 +4,8 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
-const ADMIN_WITHDRAWAL_EMAIL = "iyiolaqozeem1@gmail.com";
-const ADMIN_WITHDRAWAL_PHONE = "08085806038";
+const ADMIN_WITHDRAWAL_EMAIL = "aminatiyiola7@gmail.com";
+const ADMIN_WITHDRAWAL_PHONE = "09026251588";
 
 function generateWithdrawalReference(): string {
   const timestamp = Date.now().toString(36).toUpperCase();

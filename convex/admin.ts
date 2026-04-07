@@ -253,23 +253,74 @@ export const getAgentDetail = query({
       .query("collections")
       .withIndex("by_agent_and_date", (q) => q.eq("agentId", args.agentId))
       .order("desc")
+      .take(200);
+
+    const withdrawals = await ctx.db
+      .query("withdrawal_requests")
+      .withIndex("by_agent_and_date", (q) => q.eq("agentId", args.agentId))
+      .order("desc")
       .take(100);
 
     const enrichedCollections = await Promise.all(
       collections.map(async (c) => {
         const contributor = await ctx.db.get(c.contributorId);
-        return { ...c, contributorName: contributor?.name ?? "Unknown" };
+        return {
+          ...c,
+          contributorName: contributor?.name ?? "Unknown",
+          contributorPhone: contributor?.phone ?? "",
+        };
       }),
     );
+
+    const enrichedWithdrawals = await Promise.all(
+      withdrawals.map(async (withdrawal) => {
+        const contributor = await ctx.db.get(withdrawal.contributorId);
+        return {
+          ...withdrawal,
+          contributorName: contributor?.name ?? "Unknown",
+          contributorPhone: contributor?.phone ?? "",
+        };
+      }),
+    );
+
+    const now = new Date();
+    const todayStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    ).toISOString();
+
+    const totalCollected = collections.reduce((sum, c) => sum + c.amount, 0);
+    const todayAmount = collections
+      .filter((c) => c.collectedAt >= todayStart)
+      .reduce((sum, c) => sum + c.amount, 0);
+    const pendingAmount = collections
+      .filter((c) => c.status === "pending")
+      .reduce((sum, c) => sum + c.amount, 0);
+    const approvedWithdrawalsTotal = withdrawals
+      .filter((w) => w.status === "paid")
+      .reduce((sum, w) => sum + (w.payoutAmount ?? w.amount), 0);
 
     return {
       agent: {
         _id: agent._id,
         name: agent.name ?? "Unnamed",
         email: agent.email ?? "",
+        phone: agent.phone ?? "",
+      },
+      summary: {
+        contributorCount: contributors.length,
+        activeContributors: contributors.filter((c) => c.status === "active").length,
+        collectionCount: collections.length,
+        totalCollected,
+        todayAmount,
+        pendingAmount,
+        pendingCollectionCount: collections.filter((c) => c.status === "pending").length,
+        confirmedCollectionCount: collections.filter((c) => c.status === "confirmed").length,
+        withdrawalCount: withdrawals.length,
+        approvedWithdrawalsTotal,
       },
       contributors,
       collections: enrichedCollections,
+      withdrawals: enrichedWithdrawals,
     };
   },
 });

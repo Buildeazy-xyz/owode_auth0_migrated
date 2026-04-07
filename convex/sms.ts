@@ -77,6 +77,23 @@ export const sendAgentApprovalSMS = internalAction({
   },
 });
 
+export const sendAdminAccessGrantedSMS = internalAction({
+  args: { to: v.string(), name: v.string() },
+  handler: async (_ctx, { to, name }) => {
+    try {
+      const client = getTwilioClient();
+      const message = await client.messages.create({
+        body: `Hello ${name}, your OWODE admin access is now active. Sign in with your email to manage the dashboard. — OWODE`,
+        from: getFromNumber(),
+        to: normalizePhoneNumber(to, "Recipient phone number"),
+      });
+      console.info("Admin access SMS sent:", { to, sid: message.sid });
+    } catch (error) {
+      console.error("Failed to send admin access SMS:", error);
+    }
+  },
+});
+
 /** Notify an agent that their verification was rejected */
 export const sendAgentRejectionSMS = internalAction({
   args: { to: v.string(), agentName: v.string(), reason: v.string() },

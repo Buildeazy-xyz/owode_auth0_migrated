@@ -10,6 +10,7 @@ import OnboardingPage from "./pages/onboarding/page.tsx";
 import AgentDashboard from "./pages/agent/page.tsx";
 import ContributorDashboard from "./pages/contributor/page.tsx";
 import AdminDashboard from "./pages/admin/page.tsx";
+import AdminAgentDetailPage from "./pages/admin/agent-detail-page.tsx";
 import AboutPage from "./pages/about/page.tsx";
 import FaqPage from "./pages/faq/page.tsx";
 import ContactPage from "./pages/contact/page.tsx";
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/agent" element={<AgentDashboard />} />
             <Route path="/contributor" element={<ContributorDashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/agents/:agentId" element={<AdminAgentDetailPage />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

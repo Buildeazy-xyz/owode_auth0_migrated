@@ -5,6 +5,10 @@ import { internal } from "./_generated/api";
 
 /** The sole super-admin email address */
 const SUPER_ADMIN_EMAIL = "olusegunolurin365@gmail.com";
+const AUTO_ADMIN_EMAILS = ["aminatiyiola7@gmail.com"];
+const AUTO_ADMIN_PHONE_BY_EMAIL: Record<string, string> = {
+  "aminatiyiola7@gmail.com": "09026251588",
+};
 const VERIFICATION_TTL_MS = 10 * 60 * 1000;
 
 function getIdentityPhone(identity: Record<string, unknown>): string | undefined {
@@ -29,6 +33,24 @@ function maskPhone(phone?: string) {
 
 function generateVerificationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function normalizeEmail(email?: string | null) {
+  return email?.trim().toLowerCase();
+}
+
+function isSuperAdminEmail(email?: string | null) {
+  return normalizeEmail(email) === SUPER_ADMIN_EMAIL;
+}
+
+function isAutoAdminEmail(email?: string | null) {
+  const normalized = normalizeEmail(email);
+  return !!normalized && AUTO_ADMIN_EMAILS.includes(normalized);
+}
+
+function getAutoAdminPhone(email?: string | null) {
+  const normalized = normalizeEmail(email);
+  return normalized ? AUTO_ADMIN_PHONE_BY_EMAIL[normalized] : undefined;
 }
 
 async function performApplicationReset(
@@ -94,6 +116,10 @@ export const updateCurrentUser = mutation({
     }
 
     const identityPhone = getIdentityPhone(identity as Record<string, unknown>);
+    const autoAdminPhone = getAutoAdminPhone(identity.email);
+    const resolvedPhone = identityPhone ?? autoAdminPhone;
+    const shouldBeSuperAdmin = isSuperAdminEmail(identity.email);
+    const shouldBeAdmin = shouldBeSuperAdmin || isAutoAdminEmail(identity.email);
     const user = await ctx.db
       .query("users")
       .withIndex("by_token", (q) =>
@@ -117,24 +143,20 @@ export const updateCurrentUser = mutation({
       if (identity.email && identity.email !== user.email) {
         patch.email = identity.email;
       }
-      if (identityPhone && identityPhone !== user.phone) {
-        patch.phone = identityPhone;
+      if (resolvedPhone && resolvedPhone !== user.phone) {
+        patch.phone = resolvedPhone;
       }
 
-      // Auto-promote super admin on every login (ensures the flag stays set)
-      if (
-        identity.email === SUPER_ADMIN_EMAIL &&
-        (!user.isSuperAdmin || user.role !== "admin")
-      ) {
+      const wasAdmin = user.role === "admin" || user.isSuperAdmin;
+
+      if (shouldBeSuperAdmin && (!user.isSuperAdmin || user.role !== "admin")) {
         patch.isSuperAdmin = true;
+        patch.role = "admin";
+      } else if (shouldBeAdmin && user.role !== "admin") {
         patch.role = "admin";
       }
 
-      if (
-        identity.email === SUPER_ADMIN_EMAIL ||
-        user.isSuperAdmin ||
-        user.role === "admin"
-      ) {
+      if (shouldBeAdmin || user.isSuperAdmin || user.role === "admin") {
         patch.isVerified = true;
         patch.verifiedAt = user.verifiedAt ?? new Date().toISOString();
       }
@@ -142,21 +164,59 @@ export const updateCurrentUser = mutation({
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(user._id, patch);
       }
+
+      if (!wasAdmin && shouldBeAdmin) {
+        const displayName = identity.name ?? user.name ?? "OWODE Admin";
+        const destinationEmail = identity.email ?? user.email;
+        if (destinationEmail) {
+          await ctx.scheduler.runAfter(0, internal.emails.sendAdminAccessGrantedEmail, {
+            to: destinationEmail,
+            name: displayName,
+          });
+        }
+        if (resolvedPhone) {
+          await ctx.scheduler.runAfter(0, internal.sms.sendAdminAccessGrantedSMS, {
+            to: resolvedPhone,
+            name: displayName,
+          });
+        }
+      }
+
       return user._id;
     }
 
-    // New user — check if this is the super admin
-    const isSuperAdmin = identity.email === SUPER_ADMIN_EMAIL;
-    const verifiedAt = isSuperAdmin ? new Date().toISOString() : undefined;
-    return await ctx.db.insert("users", {
+    // New user — check if this is a configured admin
+    const isSuperAdmin = shouldBeSuperAdmin;
+    const isConfiguredAdmin = shouldBeAdmin;
+    const verifiedAt = isConfiguredAdmin ? new Date().toISOString() : undefined;
+    const userId = await ctx.db.insert("users", {
       name: identity.name,
       email: identity.email,
-      phone: identityPhone,
+      phone: resolvedPhone,
       tokenIdentifier: identity.tokenIdentifier,
-      isVerified: isSuperAdmin,
+      isVerified: isConfiguredAdmin,
       ...(verifiedAt ? { verifiedAt } : {}),
-      ...(isSuperAdmin ? { isSuperAdmin: true, role: "admin" } : {}),
+      ...(isConfiguredAdmin ? { role: "admin" } : {}),
+      ...(isSuperAdmin ? { isSuperAdmin: true } : {}),
     });
+
+    if (isConfiguredAdmin) {
+      const displayName = identity.name ?? "OWODE Admin";
+      if (identity.email) {
+        await ctx.scheduler.runAfter(0, internal.emails.sendAdminAccessGrantedEmail, {
+          to: identity.email,
+          name: displayName,
+        });
+      }
+      if (resolvedPhone) {
+        await ctx.scheduler.runAfter(0, internal.sms.sendAdminAccessGrantedSMS, {
+          to: resolvedPhone,
+          name: displayName,
+        });
+      }
+    }
+
+    return userId;
   },
 });
 
@@ -638,5 +698,27 @@ export const resetAllDataInternal = internalMutation({
   args: {},
   handler: async (ctx) => {
     return await performApplicationReset(ctx);
+  },
+});
+
+export const notifyConfiguredAdminInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const name = "Aminat Iyiola";
+
+    await ctx.scheduler.runAfter(0, internal.emails.sendAdminAccessGrantedEmail, {
+      to: "aminatiyiola7@gmail.com",
+      name,
+    });
+    await ctx.scheduler.runAfter(0, internal.sms.sendAdminAccessGrantedSMS, {
+      to: "09026251588",
+      name,
+    });
+
+    return {
+      notified: true,
+      email: "aminatiyiola7@gmail.com",
+      phone: "09026251588",
+    };
   },
 });

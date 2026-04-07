@@ -7,27 +7,31 @@ const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
 function resolveAuthUrl(configuredUrl: string | undefined, fallbackPath: string) {
   const origin = window.location.origin;
 
-  if (!configuredUrl) {
-    return new URL(fallbackPath, origin).toString();
-  }
-
   try {
-    const parsed = new URL(configuredUrl, origin);
-    const candidatePath =
-      `${parsed.pathname}${parsed.search}${parsed.hash}` || fallbackPath;
-    const normalizedPath = candidatePath.startsWith("/auth/callback")
-      ? fallbackPath
-      : candidatePath;
-
-    return new URL(normalizedPath, origin).toString();
+    return new URL(configuredUrl || fallbackPath, origin).toString();
   } catch {
     return new URL(fallbackPath, origin).toString();
   }
 }
 
+function cleanupAuthUrlNoise() {
+  const url = new URL(window.location.href);
+
+  if (
+    url.pathname !== "/auth/callback" &&
+    url.searchParams.has("iss") &&
+    !url.searchParams.has("code") &&
+    !url.searchParams.has("state")
+  ) {
+    url.searchParams.delete("iss");
+    const nextUrl = `${url.pathname}${url.search}${url.hash}` || "/";
+    window.history.replaceState({}, document.title, nextUrl);
+  }
+}
+
 const redirectUri = resolveAuthUrl(
   import.meta.env.VITE_AUTH0_REDIRECT_URI,
-  "/",
+  "/auth/callback",
 );
 const postLogoutRedirectUri = resolveAuthUrl(
   import.meta.env.VITE_AUTH0_POST_LOGOUT_REDIRECT_URI,
@@ -46,6 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     : auth0Domain
       ? `https://${auth0Domain}`
       : "";
+
+  React.useEffect(() => {
+    cleanupAuthUrlNoise();
+  }, []);
 
   if (!authority || !auth0ClientId) {
     return <>{children}</>;

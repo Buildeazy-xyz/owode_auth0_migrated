@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 /** The sole super-admin email address */
@@ -28,6 +29,57 @@ function maskPhone(phone?: string) {
 
 function generateVerificationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function performApplicationReset(
+  ctx: Pick<MutationCtx, "db">,
+) {
+  const verifications = await ctx.db.query("agent_verifications").collect();
+  for (const verification of verifications) {
+    await ctx.db.delete(verification._id);
+  }
+
+  const withdrawals = await ctx.db.query("withdrawal_requests").collect();
+  for (const withdrawal of withdrawals) {
+    await ctx.db.delete(withdrawal._id);
+  }
+
+  const collections = await ctx.db.query("collections").collect();
+  for (const collection of collections) {
+    await ctx.db.delete(collection._id);
+  }
+
+  const contributors = await ctx.db.query("contributors").collect();
+  for (const contributor of contributors) {
+    await ctx.db.delete(contributor._id);
+  }
+
+  const users = await ctx.db.query("users").collect();
+  let deletedUsers = 0;
+
+  for (const user of users) {
+    if (user.isSuperAdmin || user.email === SUPER_ADMIN_EMAIL) {
+      await ctx.db.patch(user._id, {
+        role: "admin",
+        isSuperAdmin: true,
+        isVerified: true,
+        contributorId: undefined,
+        agentStatus: undefined,
+      });
+      continue;
+    }
+
+    await ctx.db.delete(user._id);
+    deletedUsers += 1;
+  }
+
+  return {
+    deletedUsers,
+    deletedContributors: contributors.length,
+    deletedCollections: collections.length,
+    deletedWithdrawals: withdrawals.length,
+    deletedVerifications: verifications.length,
+  };
 }
 
 export const updateCurrentUser = mutation({
@@ -579,5 +631,12 @@ export const deleteUser = mutation({
     );
 
     return args.userId;
+  },
+});
+
+export const resetAllDataInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    return await performApplicationReset(ctx);
   },
 });

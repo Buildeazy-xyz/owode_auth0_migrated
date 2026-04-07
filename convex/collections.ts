@@ -342,7 +342,17 @@ export const getMyCardSummary = query({
       .collect();
 
     const now = new Date();
-    const totalSaved = allCollections.reduce((sum, c) => sum + c.amount, 0);
+    const grossTotalSaved = allCollections.reduce((sum, c) => sum + c.amount, 0);
+    const withdrawals = await ctx.db
+      .query("withdrawal_requests")
+      .withIndex("by_contributor_and_date", (q) =>
+        q.eq("contributorId", user.contributorId!),
+      )
+      .collect();
+    const paidWithdrawalsTotal = withdrawals
+      .filter((request) => request.status === "paid")
+      .reduce((sum, request) => sum + request.amount, 0);
+    const totalSaved = Math.max(0, grossTotalSaved - paidWithdrawalsTotal);
 
     if (frequency === "daily") {
       // Current month boundaries in UTC
@@ -381,6 +391,8 @@ export const getMyCardSummary = query({
         daysPaid: paidDays.size,
         periodTotal: monthTotal,
         totalSaved,
+        grossTotalSaved,
+        paidWithdrawalsTotal,
         totalCollections: allCollections.length,
         periodTarget: contributor.dailyAmount * daysInMonth,
         weeklyDay: undefined as number | undefined,
@@ -470,6 +482,8 @@ export const getMyCardSummary = query({
         daysPaid: paidWeekNumbers.size,
         periodTotal,
         totalSaved,
+        grossTotalSaved,
+        paidWithdrawalsTotal,
         totalCollections: allCollections.length,
         periodTarget: contributor.dailyAmount * totalWeeks,
         weeklyDay: contributor.weeklyDay,
@@ -518,6 +532,8 @@ export const getMyCardSummary = query({
       daysPaid: paidMonthNumbers.size,
       periodTotal,
       totalSaved,
+      grossTotalSaved,
+      paidWithdrawalsTotal,
       totalCollections: allCollections.length,
       periodTarget: contributor.dailyAmount * 12,
       weeklyDay: undefined as number | undefined,

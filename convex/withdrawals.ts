@@ -60,6 +60,18 @@ function buildWithdrawalPreview({
   };
 }
 
+function getApprovedWithdrawalTotal(
+  requests: Array<Doc<"withdrawal_requests">>,
+  excludeRequestId?: Doc<"withdrawal_requests">["_id"],
+) {
+  return requests
+    .filter(
+      (request) =>
+        request.status === "paid" && request._id !== excludeRequestId,
+    )
+    .reduce((sum, request) => sum + request.amount, 0);
+}
+
 async function requireAgent(
   ctx: Pick<MutationCtx | QueryCtx, "auth" | "db">,
 ): Promise<Doc<"users">> {
@@ -142,14 +154,7 @@ export const getPreview = query({
       )
       .collect();
 
-    const consumedAmount = previousRequests
-      .filter(
-        (request) =>
-          request.status === "submitted" ||
-          request.status === "processing" ||
-          request.status === "paid",
-      )
-      .reduce((sum, request) => sum + request.amount, 0);
+    const consumedAmount = getApprovedWithdrawalTotal(previousRequests);
 
     return buildWithdrawalPreview({
       dailyAmount: contributor.dailyAmount,
@@ -217,14 +222,7 @@ export const requestWithdrawal = mutation({
       )
       .collect();
 
-    const consumedAmount = previousRequests
-      .filter(
-        (request) =>
-          request.status === "submitted" ||
-          request.status === "processing" ||
-          request.status === "paid",
-      )
-      .reduce((sum, request) => sum + request.amount, 0);
+    const consumedAmount = getApprovedWithdrawalTotal(previousRequests);
 
     const preview = buildWithdrawalPreview({
       dailyAmount: contributor.dailyAmount,
@@ -409,8 +407,50 @@ export const reviewRequest = mutation({
       });
     }
 
-    if (request.status === "paid" && args.action === "paid") {
-      return { status: request.status };
+    if (request.status === "paid" || request.status === "rejected") {
+      if (request.status === args.action) {
+        return {
+          status: request.status,
+          payoutAmount: request.payoutAmount ?? request.amount,
+          deductedFromCompanyTotal: request.status === "paid",
+        };
+      }
+
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message:
+          request.status === "paid"
+            ? "This withdrawal has already been approved and cannot be changed again."
+            : "This withdrawal has already been rejected and cannot be changed again.",
+      });
+    }
+
+    if (args.action === "paid") {
+      const collections = await ctx.db
+        .query("collections")
+        .withIndex("by_contributor", (q) => q.eq("contributorId", request.contributorId))
+        .collect();
+      const totalSaved = collections.reduce((sum, item) => sum + item.amount, 0);
+
+      const contributorRequests = await ctx.db
+        .query("withdrawal_requests")
+        .withIndex("by_contributor_and_date", (q) =>
+          q.eq("contributorId", request.contributorId),
+        )
+        .collect();
+
+      const consumedAmount = getApprovedWithdrawalTotal(
+        contributorRequests,
+        request._id,
+      );
+      const availableBalance = Math.max(0, totalSaved - consumedAmount);
+
+      if (request.amount > availableBalance) {
+        throw new ConvexError({
+          code: "BAD_REQUEST",
+          message: `This contributor only has ₦${availableBalance.toLocaleString()} left for approval right now.`,
+        });
+      }
     }
 
     await ctx.db.patch(args.requestId, {

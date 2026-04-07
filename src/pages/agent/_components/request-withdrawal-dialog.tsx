@@ -121,7 +121,7 @@ export default function RequestWithdrawalDialog({
       toast.success("Withdrawal request sent", {
         description: `Ref: ${result.referenceNumber}. Pay out: ₦${result.payoutAmount.toLocaleString()} after ₦${(
           result.contributionFee + result.penaltyFee
-        ).toLocaleString()} in fees. Admin has been notified.`,
+        ).toLocaleString()} in fees. Admin has been notified, and no balance will be deducted until approval.`,
       });
       handleClose();
     } catch (error) {
@@ -306,7 +306,7 @@ export default function RequestWithdrawalDialog({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Full withdrawal is the default. If the contributor does not want all the money now, switch to partial withdrawal and enter the amount. Each recorded contribution counts as one day; penalty applies until day 25 and stops from day 26 upward. This request will also appear on the admin dashboard.
+            Full withdrawal is the default. If the contributor does not want all the money now, switch to partial withdrawal and enter the amount. Each recorded contribution counts as one day; penalty applies until day 25 and stops from day 26 upward. This request appears on the admin dashboard, and money is only deducted if the admin approves it.
           </p>
 
           <Button

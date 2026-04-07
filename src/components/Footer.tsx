@@ -36,7 +36,7 @@ export default function Footer() {
           <div className="md:col-span-1">
             <Link to="/" className="flex items-center gap-2">
               <img
-                src="https://hercules-cdn.com/file_MvdcHn3Luis6KlyAOhCjHtE8"
+                src="/icon/icon-192.png"
                 alt="OWODE Financial Group"
                 className="h-10 w-auto brightness-0 invert"
               />

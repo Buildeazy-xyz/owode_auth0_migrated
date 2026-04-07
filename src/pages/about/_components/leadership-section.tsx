@@ -6,31 +6,31 @@ const TEAM = [
     name: "Olusegun Oyero Olurin",
     role: "Chief Vision Officer / Chief Technology Officer",
     description: "Provides direction, strategy, and long-term vision.",
-    photo: "https://hercules-cdn.com/file_sD40vPj2ewtLu5zgst3TnWkt",
+    photo: undefined,
   },
   {
     name: "Itunu-Oluwa Olurin",
     role: "Chief Executive Officer",
     description: "Leads operations and ensures excellent service delivery.",
-    photo: "https://hercules-cdn.com/file_06SAjw2exX5k141m3HizuPeE",
+    photo: undefined,
   },
   {
     name: "Mary Oladuni Abiona",
     role: "Operations Manager",
     description: "Oversees daily activities and customer experience.",
-    photo: "https://hercules-cdn.com/file_rtlllTUelauzfKlGXI30SArK",
+    photo: undefined,
   },
   {
     name: "Aminat Tolani Iyiola",
     role: "Assistant Administration Manager",
     description: "Supports coordination and administrative systems.",
-    photo: "https://hercules-cdn.com/file_taXtfL8tPEgJi7FhsNcnjMLZ",
+    photo: undefined,
   },
   {
     name: "Adewale Qozeem",
     role: "Assistant Technology Officer",
     description: "Supports digital systems and platform development.",
-    photo: "https://hercules-cdn.com/file_LbS8qtsrWJNX93UHOkvZG1K9",
+    photo: undefined,
   },
 ];
 
@@ -87,7 +87,7 @@ function TeamCard({
       className="bg-card border border-border rounded-2xl overflow-hidden"
     >
       {/* Photo */}
-      <div className={`aspect-[4/3] flex items-center justify-center overflow-hidden ${member.photo ? "bg-white" : "bg-gradient-to-br from-primary/5 to-primary/15"}`}>
+      <div className={`aspect-4/3 flex items-center justify-center overflow-hidden ${member.photo ? "bg-white" : "bg-linear-to-br from-primary/5 to-primary/15"}`}>
         {member.photo ? (
           <img
             src={member.photo}

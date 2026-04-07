@@ -50,6 +50,13 @@ const STATUS_STYLES: Record<WithdrawalStatus, string> = {
     "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
+const STATUS_LABELS: Record<WithdrawalStatus, string> = {
+  submitted: "Submitted",
+  processing: "Processing",
+  paid: "Approved",
+  rejected: "Rejected",
+};
+
 type Filter = WithdrawalStatus | "all";
 
 type WithdrawalItem = {
@@ -76,7 +83,7 @@ const FILTERS: { label: string; value: Filter }[] = [
   { label: "All", value: "all" },
   { label: "Submitted", value: "submitted" },
   { label: "Processing", value: "processing" },
-  { label: "Paid", value: "paid" },
+  { label: "Approved", value: "paid" },
   { label: "Rejected", value: "rejected" },
 ];
 
@@ -155,7 +162,7 @@ export default function WithdrawalsTable() {
                           variant="secondary"
                           className={`mt-1 text-[10px] px-1.5 py-0 ${STATUS_STYLES[request.status]}`}
                         >
-                          {request.status}
+                          {STATUS_LABELS[request.status]}
                         </Badge>
                       </div>
                     </div>
@@ -194,6 +201,7 @@ function ReviewWithdrawalDialog({
   const reviewRequest = useMutation(api.withdrawals.reviewRequest);
   const [note, setNote] = useState(request.reviewNote ?? "");
   const [loading, setLoading] = useState(false);
+  const isFinalStatus = request.status === "paid" || request.status === "rejected";
 
   const handleAction = async (
     action: "processing" | "paid" | "rejected",
@@ -208,9 +216,9 @@ function ReviewWithdrawalDialog({
 
       toast.success(
         action === "paid"
-          ? `Withdrawal approved. ₦${(result.payoutAmount ?? request.amount).toLocaleString()} deducted from company balance.`
+          ? `Withdrawal approved. ₦${(result.payoutAmount ?? request.amount).toLocaleString()} has now been deducted after approval.`
           : action === "rejected"
-            ? "Withdrawal rejected"
+            ? "Withdrawal rejected. No money was deducted."
             : "Withdrawal marked as processing",
       );
       onClose();
@@ -278,7 +286,7 @@ function ReviewWithdrawalDialog({
             <div>
               <p className="text-muted-foreground">Status</p>
               <Badge variant="secondary" className={STATUS_STYLES[request.status]}>
-                {request.status}
+                {STATUS_LABELS[request.status]}
               </Badge>
             </div>
           </div>
@@ -321,7 +329,7 @@ function ReviewWithdrawalDialog({
               type="button"
               variant="secondary"
               onClick={() => handleAction("processing")}
-              disabled={loading}
+              disabled={loading || isFinalStatus}
               className="gap-2"
             >
               <Clock3 className="w-4 h-4" />
@@ -330,17 +338,17 @@ function ReviewWithdrawalDialog({
             <Button
               type="button"
               onClick={() => handleAction("paid")}
-              disabled={loading}
+              disabled={loading || isFinalStatus}
               className="gap-2 bg-green-600 text-white hover:bg-green-700"
             >
               <CheckCircle2 className="w-4 h-4" />
-              Approve & mark paid
+              Approve withdrawal
             </Button>
             <Button
               type="button"
               variant="destructive"
               onClick={() => handleAction("rejected")}
-              disabled={loading}
+              disabled={loading || isFinalStatus}
               className="gap-2"
             >
               <XCircle className="w-4 h-4" />
@@ -348,11 +356,14 @@ function ReviewWithdrawalDialog({
             </Button>
           </div>
 
-          <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+          <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-2">
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4" />
-              Once marked as paid, the payout amount is deducted from the company balance shown on the admin dashboard.
+              Funds are only deducted after approval. Rejected withdrawals do not reduce any balance.
             </div>
+            {isFinalStatus && (
+              <p>This decision is locked and can no longer be changed.</p>
+            )}
           </div>
         </div>
       </DialogContent>

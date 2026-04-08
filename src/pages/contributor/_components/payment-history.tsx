@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import {
   Card,
   CardContent,
@@ -31,13 +32,22 @@ const STATUS_STYLES: Record<string, string> = {
     "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
-export default function PaymentHistory() {
-  const collections = useQuery(api.collections.getMyCollections);
+export default function PaymentHistory({
+  contributorId,
+  title = "Payment History",
+}: {
+  contributorId?: Id<"contributors">;
+  title?: string;
+}) {
+  const collections = useQuery(
+    api.collections.getMyCollections,
+    contributorId ? { contributorId } : {},
+  );
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-serif">Payment History</CardTitle>
+        <CardTitle className="text-lg font-serif">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         {collections === undefined ? (
@@ -54,8 +64,9 @@ export default function PaymentHistory() {
               </EmptyMedia>
               <EmptyTitle>No payments yet</EmptyTitle>
               <EmptyDescription>
-                Your payments will appear here once your agent records a
-                collection.
+                {contributorId
+                  ? "Payments recorded for this contributor will appear here once you add one."
+                  : "Your payments will appear here once your agent records a collection."}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

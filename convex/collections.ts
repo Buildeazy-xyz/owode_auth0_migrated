@@ -1,12 +1,84 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel.d.ts";
 
 /** Generate a unique reference number for each collection */
 function generateReference(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `OWD-${timestamp}-${random}`;
+}
+
+async function resolveContributorForDashboard(
+  ctx: QueryCtx,
+  requestedContributorId?: Id<"contributors">,
+) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new ConvexError({
+      code: "UNAUTHENTICATED",
+      message: "User not logged in",
+    });
+  }
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_token", (q) =>
+      q.eq("tokenIdentifier", identity.tokenIdentifier),
+    )
+    .unique();
+
+  if (!user) {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "User not found",
+    });
+  }
+
+  if (user.role === "agent") {
+    if (!requestedContributorId) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Contributor is required",
+      });
+    }
+
+    const contributor = await ctx.db.get(requestedContributorId);
+    if (!contributor || contributor.agentId !== user._id) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Contributor not assigned to this agent",
+      });
+    }
+
+    return {
+      user,
+      contributor,
+      contributorId: contributor._id,
+    };
+  }
+
+  if (!user.contributorId) {
+    throw new ConvexError({
+      code: "FORBIDDEN",
+      message: "No contributor profile linked",
+    });
+  }
+
+  const contributor = await ctx.db.get(user.contributorId);
+  if (!contributor) {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Contributor record not found",
+    });
+  }
+
+  return {
+    user,
+    contributor,
+    contributorId: contributor._id,
+  };
 }
 
 export const record = mutation({
@@ -254,33 +326,18 @@ export const getTodaySummary = query({
 
 /** Get all collections for the current contributor this month */
 export const getMyCollections = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError({
-        code: "UNAUTHENTICATED",
-        message: "User not logged in",
-      });
-    }
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique();
-    if (!user || !user.contributorId) {
-      throw new ConvexError({
-        code: "FORBIDDEN",
-        message: "No contributor profile linked",
-      });
-    }
+  args: {
+    contributorId: v.optional(v.id("contributors")),
+  },
+  handler: async (ctx, args) => {
+    const { contributorId } = await resolveContributorForDashboard(
+      ctx,
+      args.contributorId,
+    );
 
     return await ctx.db
       .query("collections")
-      .withIndex("by_contributor", (q) =>
-        q.eq("contributorId", user.contributorId!),
-      )
+      .withIndex("by_contributor", (q) => q.eq("contributorId", contributorId))
       .order("desc")
       .take(100);
   },
@@ -300,44 +357,21 @@ function weeksInMonth(year: number, month: number, weekday: number): number {
 
 /** Virtual card summary for the current period (adapts to frequency) */
 export const getMyCardSummary = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError({
-        code: "UNAUTHENTICATED",
-        message: "User not logged in",
-      });
-    }
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique();
-    if (!user || !user.contributorId) {
-      throw new ConvexError({
-        code: "FORBIDDEN",
-        message: "No contributor profile linked",
-      });
-    }
-
-    const contributor = await ctx.db.get(user.contributorId);
-    if (!contributor) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Contributor record not found",
-      });
-    }
+  args: {
+    contributorId: v.optional(v.id("contributors")),
+  },
+  handler: async (ctx, args) => {
+    const { contributorId, contributor } = await resolveContributorForDashboard(
+      ctx,
+      args.contributorId,
+    );
 
     const frequency = contributor.frequency ?? "daily";
 
     // Get all collections for this contributor
     const allCollections = await ctx.db
       .query("collections")
-      .withIndex("by_contributor", (q) =>
-        q.eq("contributorId", user.contributorId!),
-      )
+      .withIndex("by_contributor", (q) => q.eq("contributorId", contributorId))
       .order("desc")
       .collect();
 
@@ -346,7 +380,7 @@ export const getMyCardSummary = query({
     const withdrawals = await ctx.db
       .query("withdrawal_requests")
       .withIndex("by_contributor_and_date", (q) =>
-        q.eq("contributorId", user.contributorId!),
+        q.eq("contributorId", contributorId),
       )
       .collect();
     const paidWithdrawalsTotal = withdrawals

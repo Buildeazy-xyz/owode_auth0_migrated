@@ -1,4 +1,5 @@
 const CACHE_NAME = "owode-v2";
+const PUSH_NOTIFICATIONS_PAUSED = true;
 const urlsToCache = ["/", "/icon/icon-192.png", "/icon/icon-512.png", "/offline.html"];
 
 // Install event - cache core assets
@@ -75,6 +76,10 @@ self.addEventListener("activate", (event) => {
 
 // Handle push notifications
 self.addEventListener("push", (event) => {
+  if (PUSH_NOTIFICATIONS_PAUSED) {
+    return;
+  }
+
   const data = event.data?.json() ?? {};
 
   event.waitUntil(

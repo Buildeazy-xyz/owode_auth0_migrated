@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Banknote, CalendarCheck, TrendingUp, Target, Wallet } from "lucide-react";
@@ -12,8 +13,15 @@ const PERIOD_LABELS: Record<Frequency, string> = {
   monthly: "This Year",
 };
 
-export default function ContributorStats() {
-  const card = useQuery(api.collections.getMyCardSummary);
+export default function ContributorStats({
+  contributorId,
+}: {
+  contributorId?: Id<"contributors">;
+}) {
+  const card = useQuery(
+    api.collections.getMyCardSummary,
+    contributorId ? { contributorId } : {},
+  );
 
   if (card === undefined) {
     return (

@@ -339,8 +339,10 @@ export const claimAccount = mutation({
 
 /** Get the current contributor's profile with agent info */
 export const getMyProfile = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    contributorId: v.optional(v.id("contributors")),
+  },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError({
@@ -354,12 +356,26 @@ export const getMyProfile = query({
         q.eq("tokenIdentifier", identity.tokenIdentifier),
       )
       .unique();
-    if (!user || !user.contributorId) {
+    if (!user) {
       return null;
     }
 
-    const contributor = await ctx.db.get(user.contributorId);
+    const targetContributorId =
+      user.role === "agent" ? args.contributorId : user.contributorId;
+
+    if (!targetContributorId) {
+      return null;
+    }
+
+    const contributor = await ctx.db.get(targetContributorId);
     if (!contributor) return null;
+
+    if (user.role === "agent" && contributor.agentId !== user._id) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Contributor not assigned to this agent",
+      });
+    }
 
     const agent = await ctx.db.get(contributor.agentId);
 

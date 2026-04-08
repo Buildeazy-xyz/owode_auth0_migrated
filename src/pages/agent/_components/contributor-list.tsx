@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
@@ -49,6 +50,7 @@ import {
   Phone,
   CalendarClock,
   ArrowRightLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
@@ -167,6 +169,7 @@ function ContributorRow({
   onRequestWithdrawal: () => void;
 }) {
   const toggleStatus = useMutation(api.contributors.toggleStatus);
+  const navigate = useNavigate();
   const [toggling, setToggling] = useState(false);
   const freq: Frequency = (contributor.frequency as Frequency) ?? "daily";
 
@@ -201,8 +204,17 @@ function ContributorRow({
 
   return (
     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-      <div className="min-w-0">
-        <p className="font-medium text-sm truncate">{contributor.name}</p>
+      <button
+        type="button"
+        onClick={() => navigate(`/agent/contributors/${contributor._id}`)}
+        className="min-w-0 text-left group"
+      >
+        <div className="flex items-center gap-2">
+          <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+            {contributor.name}
+          </p>
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+        </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Phone className="w-3 h-3" />
@@ -213,7 +225,7 @@ function ContributorRow({
             {FREQUENCY_LABELS[freq]}{scheduleInfo}
           </span>
         </div>
-      </div>
+      </button>
       <div className="flex items-center gap-2 flex-shrink-0">
         <span className="text-sm font-medium hidden sm:block">
           ₦{contributor.dailyAmount.toLocaleString()}{FREQUENCY_PERIOD[freq]}

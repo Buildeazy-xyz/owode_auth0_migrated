@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { User, Phone, CalendarClock } from "lucide-react";
@@ -21,8 +22,15 @@ function getOrdinalSuffix(n: number): string {
   return s[(v - 20) % 10] || s[v] || s[0];
 }
 
-export default function AgentInfo() {
-  const profile = useQuery(api.contributors.getMyProfile);
+export default function AgentInfo({
+  contributorId,
+}: {
+  contributorId?: Id<"contributors">;
+}) {
+  const profile = useQuery(
+    api.contributors.getMyProfile,
+    contributorId ? { contributorId } : {},
+  );
 
   if (profile === undefined) {
     return <Skeleton className="h-20 w-full rounded-xl" />;

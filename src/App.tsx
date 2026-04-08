@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound.tsx";
 import AppLayout from "./components/AppLayout.tsx";
 import OnboardingPage from "./pages/onboarding/page.tsx";
 import AgentDashboard from "./pages/agent/page.tsx";
+import AgentContributorDetailPage from "./pages/agent/contributor-detail-page.tsx";
 import ContributorDashboard from "./pages/contributor/page.tsx";
 import AdminDashboard from "./pages/admin/page.tsx";
 import AdminAgentDetailPage from "./pages/admin/agent-detail-page.tsx";
@@ -31,6 +32,7 @@ export default function App() {
           {/* Protected routes with shared layout */}
           <Route element={<AppLayout />}>
             <Route path="/agent" element={<AgentDashboard />} />
+            <Route path="/agent/contributors/:contributorId" element={<AgentContributorDetailPage />} />
             <Route path="/contributor" element={<ContributorDashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/agents/:agentId" element={<AdminAgentDetailPage />} />

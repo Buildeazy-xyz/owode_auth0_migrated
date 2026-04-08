@@ -41,10 +41,25 @@ function getFromNumber(): string {
   return normalizePhoneNumber(num, "Twilio from number");
 }
 
+const SMS_NOTIFICATIONS_PAUSED = true;
+
+function shouldSkipSms(to: string) {
+  if (!SMS_NOTIFICATIONS_PAUSED) {
+    return false;
+  }
+
+  console.info("SMS notifications are temporarily paused:", { to });
+  return true;
+}
+
 /** Send a one-time account verification code */
 export const sendAccountVerificationSMS = internalAction({
   args: { to: v.string(), name: v.string(), code: v.string() },
   handler: async (_ctx, { to, name, code }) => {
+    if (shouldSkipSms(to)) {
+      return;
+    }
+
     try {
       const client = getTwilioClient();
       const message = await client.messages.create({
@@ -63,6 +78,10 @@ export const sendAccountVerificationSMS = internalAction({
 export const sendAgentApprovalSMS = internalAction({
   args: { to: v.string(), agentName: v.string() },
   handler: async (_ctx, { to, agentName }) => {
+    if (shouldSkipSms(to)) {
+      return;
+    }
+
     try {
       const client = getTwilioClient();
       const message = await client.messages.create({
@@ -80,6 +99,10 @@ export const sendAgentApprovalSMS = internalAction({
 export const sendAdminAccessGrantedSMS = internalAction({
   args: { to: v.string(), name: v.string() },
   handler: async (_ctx, { to, name }) => {
+    if (shouldSkipSms(to)) {
+      return;
+    }
+
     try {
       const client = getTwilioClient();
       const message = await client.messages.create({
@@ -98,6 +121,10 @@ export const sendAdminAccessGrantedSMS = internalAction({
 export const sendAgentRejectionSMS = internalAction({
   args: { to: v.string(), agentName: v.string(), reason: v.string() },
   handler: async (_ctx, { to, agentName, reason }) => {
+    if (shouldSkipSms(to)) {
+      return;
+    }
+
     try {
       const client = getTwilioClient();
       const message = await client.messages.create({
@@ -122,6 +149,10 @@ export const sendContributorWelcomeSMS = internalAction({
     amount: v.number(),
   },
   handler: async (_ctx, { to, contributorName, agentName, frequency, amount }) => {
+    if (shouldSkipSms(to)) {
+      return;
+    }
+
     try {
       const client = getTwilioClient();
       const message = await client.messages.create({
@@ -152,6 +183,10 @@ export const sendCollectionSMS = internalAction({
     _ctx,
     { to, contributorName, amount, totalSaved, contributionAmount, frequency, referenceNumber, paymentMethod },
   ) => {
+    if (shouldSkipSms(to)) {
+      return;
+    }
+
     try {
       const client = getTwilioClient();
       const method = paymentMethod === "bank_transfer" ? "Bank Transfer" : "Cash";
@@ -202,6 +237,10 @@ export const sendWithdrawalRequestAdminSMS = internalAction({
       payoutAmount,
     },
   ) => {
+    if (shouldSkipSms(to)) {
+      return;
+    }
+
     try {
       const client = getTwilioClient();
       const message = await client.messages.create({

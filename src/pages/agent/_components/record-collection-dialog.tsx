@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
@@ -37,9 +37,17 @@ type ReceiptData = {
   bankReference?: string;
 };
 
-export default function RecordCollectionDialog() {
+type RecordCollectionDialogProps = {
+  defaultContributorId?: Id<"contributors"> | string;
+  triggerLabel?: string;
+};
+
+export default function RecordCollectionDialog({
+  defaultContributorId,
+  triggerLabel = "Record Collection",
+}: RecordCollectionDialogProps = {}) {
   const [open, setOpen] = useState(false);
-  const [contributorId, setContributorId] = useState("");
+  const [contributorId, setContributorId] = useState(defaultContributorId ?? "");
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [bankReference, setBankReference] = useState("");
@@ -51,8 +59,10 @@ export default function RecordCollectionDialog() {
   const currentUser = useQuery(api.users.getCurrentUser);
   const recordCollection = useMutation(api.collections.record);
 
-  const activeContributors =
-    contributors?.filter((c) => c.status === "active") ?? [];
+  const activeContributors = useMemo(
+    () => contributors?.filter((c) => c.status === "active") ?? [],
+    [contributors],
+  );
 
   const handleContributorChange = (value: string) => {
     setContributorId(value);
@@ -77,9 +87,24 @@ export default function RecordCollectionDialog() {
     monthly: "/month",
   };
 
+  useEffect(() => {
+    if (!open || !defaultContributorId) {
+      return;
+    }
+
+    const defaultValue = defaultContributorId.toString();
+    setContributorId(defaultValue);
+    const contributor = activeContributors.find((c) => c._id === defaultValue);
+    if (contributor) {
+      setAmount(contributor.dailyAmount.toString());
+    }
+  }, [defaultContributorId, activeContributors, open]);
+
   const resetForm = () => {
-    setContributorId("");
-    setAmount("");
+    const defaultValue = defaultContributorId?.toString() ?? "";
+    setContributorId(defaultValue);
+    const contributor = activeContributors.find((c) => c._id === defaultValue);
+    setAmount(contributor ? contributor.dailyAmount.toString() : "");
     setPaymentMethod("cash");
     setBankReference("");
     setNote("");
@@ -152,7 +177,7 @@ export default function RecordCollectionDialog() {
       <DialogTrigger asChild>
         <Button className="gap-2">
           <ClipboardCheck className="w-4 h-4" />
-          Record Collection
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -175,29 +200,45 @@ export default function RecordCollectionDialog() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>Contributor</Label>
-                <Select
-                  value={contributorId}
-                  onValueChange={handleContributorChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select contributor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeContributors.map((c) => {
-                      const f = (c.frequency ?? "daily") as "daily" | "weekly" | "monthly";
-                      const period = freqPeriod[f] ?? "/day";
-                      return (
-                        <SelectItem key={c._id} value={c._id}>
-                          {c.name} (₦{c.dailyAmount.toLocaleString()}{period})
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                {activeContributors.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No active contributors. Add a contributor first.
-                  </p>
+                {defaultContributorId ? (
+                  <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                    <p className="font-medium">
+                      {selectedContributor?.name ?? "Selected contributor"}
+                    </p>
+                    {selectedContributor && (
+                      <p className="text-xs text-muted-foreground">
+                        ₦{selectedContributor.dailyAmount.toLocaleString()}
+                        {freqPeriod[freq]} contribution
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Select
+                      value={contributorId}
+                      onValueChange={handleContributorChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select contributor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeContributors.map((c) => {
+                          const f = (c.frequency ?? "daily") as "daily" | "weekly" | "monthly";
+                          const period = freqPeriod[f] ?? "/day";
+                          return (
+                            <SelectItem key={c._id} value={c._id}>
+                              {c.name} (₦{c.dailyAmount.toLocaleString()}{period})
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    {activeContributors.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No active contributors. Add a contributor first.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 

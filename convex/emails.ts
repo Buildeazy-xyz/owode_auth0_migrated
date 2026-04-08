@@ -14,6 +14,7 @@ const MAILGUN_SENDER_EMAIL =
   process.env.MAILGUN_FROM_EMAIL ??
   process.env.SENDER_EMAIL ??
   "OWODE <mailgun@mg.example.com>";
+const EMAIL_NOTIFICATIONS_PAUSED = true;
 
 async function sendViaMailgun({
   to,
@@ -101,6 +102,14 @@ async function sendEmail({
   subject: string;
   html: string;
 }) {
+  if (EMAIL_NOTIFICATIONS_PAUSED) {
+    console.info("Email notifications are temporarily paused:", {
+      to,
+      subject,
+    });
+    return;
+  }
+
   try {
     if (await sendViaResend({ to, subject, html })) {
       return;

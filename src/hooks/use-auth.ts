@@ -7,7 +7,7 @@ export function useAuth() {
   return useMemo(
     () => ({
       isAuthenticated: auth.isAuthenticated,
-      isLoading: auth.isLoading || Boolean(auth.activeNavigator),
+      isLoading: auth.isLoading || auth.activeNavigator === "signinRedirect",
       error: auth.error ?? null,
       user: auth.user ?? null,
       signinRedirect: (mode: "signin" | "signup" = "signin") =>

@@ -27,13 +27,14 @@ function useConvexOidcAuth() {
           );
         }
 
-        return auth.user?.access_token ?? auth.user?.id_token ?? null;
+        return auth.user?.id_token ?? auth.user?.access_token ?? null;
       },
     }),
     [
       auth.activeNavigator,
       auth.isAuthenticated,
       auth.isLoading,
+      auth.signinSilent,
       auth.user?.access_token,
       auth.user?.id_token,
     ],

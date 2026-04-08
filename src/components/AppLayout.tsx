@@ -1,8 +1,10 @@
-import { Outlet, Link, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Outlet, Link, Navigate, useNavigate } from "react-router-dom";
 import {
   Authenticated,
   Unauthenticated,
   AuthLoading,
+  useMutation,
   useQuery,
 } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
@@ -19,20 +21,7 @@ export default function AppLayout() {
         </div>
       </AuthLoading>
       <Unauthenticated>
-        <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4">
-          <img
-            src="/images/logo.png"
-            alt="OWODE Financial Group"
-            className="h-14 w-auto"
-          />
-          <h1 className="text-2xl font-bold font-serif">
-            Sign in to continue
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            You need to be signed in to access OWODE.
-          </p>
-          <SignInButton />
-        </div>
+        <Navigate to="/" replace />
       </Unauthenticated>
       <Authenticated>
         <VerifiedAppLayout />
@@ -43,12 +32,35 @@ export default function AppLayout() {
 
 function VerifiedAppLayout() {
   const user = useQuery(api.users.getCurrentUser);
+  const updateCurrentUser = useMutation(api.users.updateCurrentUser);
+  const navigate = useNavigate();
+  const [isRestoringSession, setIsRestoringSession] = useState(false);
+  const [hasTriedRestore, setHasTriedRestore] = useState(false);
   const bypassVerification = !!(user?.role === "admin" || user?.isSuperAdmin);
 
-  if (user === undefined || user === null) {
+  useEffect(() => {
+    if (user !== null || isRestoringSession || hasTriedRestore) {
+      return;
+    }
+
+    setIsRestoringSession(true);
+    setHasTriedRestore(true);
+
+    void updateCurrentUser()
+      .catch((error) => {
+        console.error("Failed to restore the signed-in session:", error);
+        navigate("/", { replace: true });
+      })
+      .finally(() => {
+        setIsRestoringSession(false);
+      });
+  }, [hasTriedRestore, isRestoringSession, navigate, updateCurrentUser, user]);
+
+  if (user === undefined || user === null || isRestoringSession) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center">
         <Spinner className="size-8" />
+        <p className="text-sm text-muted-foreground">Restoring your session...</p>
       </div>
     );
   }

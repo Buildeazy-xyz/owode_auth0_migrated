@@ -10,6 +10,8 @@ function generateReference(): string {
   return `OWD-${timestamp}-${random}`;
 }
 
+const STANDARD_MONTH_DAYS = 31;
+
 async function resolveContributorForDashboard(
   ctx: QueryCtx,
   requestedContributorId?: Id<"contributors">,
@@ -346,7 +348,7 @@ export const getMyCollections = query({
 /** Helper: count how many weeks (starting from a given weekday) fall within a given month */
 function weeksInMonth(year: number, month: number, weekday: number): number {
   let count = 0;
-  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const daysInMonth = STANDARD_MONTH_DAYS;
   for (let d = 1; d <= daysInMonth; d++) {
     if (new Date(Date.UTC(year, month, d)).getUTCDay() === weekday) {
       count++;
@@ -410,11 +412,7 @@ export const getMyCardSummary = query({
         paidDays.add(new Date(c.collectedAt).getUTCDate());
       }
 
-      const daysInMonth = new Date(
-        now.getUTCFullYear(),
-        now.getUTCMonth() + 1,
-        0,
-      ).getUTCDate();
+      const daysInMonth = STANDARD_MONTH_DAYS;
 
       return {
         frequency: "daily" as const,
@@ -466,11 +464,7 @@ export const getMyCardSummary = query({
 
       // Map collections to week numbers (1-based)
       const paidWeekNumbers = new Set<number>();
-      const daysInMonth = new Date(
-        now.getUTCFullYear(),
-        now.getUTCMonth() + 1,
-        0,
-      ).getUTCDate();
+      const daysInMonth = STANDARD_MONTH_DAYS;
 
       // Find all occurrences of the target weekday in this month
       const weekdayDates: number[] = [];
@@ -556,11 +550,7 @@ export const getMyCardSummary = query({
     return {
       frequency: "monthly" as const,
       contributionAmount: contributor.dailyAmount,
-      daysInMonth: new Date(
-        now.getUTCFullYear(),
-        now.getUTCMonth() + 1,
-        0,
-      ).getUTCDate(),
+      daysInMonth: STANDARD_MONTH_DAYS,
       currentDay: now.getUTCDate(),
       paidDays: [] as number[],
       daysPaid: paidMonthNumbers.size,

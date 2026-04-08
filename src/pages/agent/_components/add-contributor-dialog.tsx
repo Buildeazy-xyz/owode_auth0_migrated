@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import {
   Dialog,
@@ -20,6 +20,16 @@ import {
 } from "@/components/ui/select.tsx";
 import { UserPlus, CalendarClock, Mail } from "lucide-react";
 import { PhoneInput } from "@/components/ui/phone-input.tsx";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog.tsx";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
 
@@ -51,7 +61,13 @@ export default function AddContributorDialog() {
   const [weeklyDay, setWeeklyDay] = useState("1"); // Monday default
   const [monthlyDay, setMonthlyDay] = useState("1");
   const [loading, setLoading] = useState(false);
+  const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
+  const [duplicateMatch, setDuplicateMatch] = useState<{
+    name: string;
+    phone: string;
+  } | null>(null);
 
+  const contributors = useQuery(api.contributors.listByAgent) ?? [];
   const addContributor = useMutation(api.contributors.add);
 
   const resetForm = () => {
@@ -64,17 +80,11 @@ export default function AddContributorDialog() {
     setMonthlyDay("1");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !phone || !amount) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
+  const submitContributor = async () => {
     setLoading(true);
     try {
       await addContributor({
-        name,
+        name: name.trim(),
         phone,
         email: email.trim() || undefined,
         dailyAmount: Number(amount),
@@ -82,7 +92,9 @@ export default function AddContributorDialog() {
         weeklyDay: frequency === "weekly" ? Number(weeklyDay) : undefined,
         monthlyDay: frequency === "monthly" ? Number(monthlyDay) : undefined,
       });
-      toast.success(`${name} added as contributor`);
+      toast.success(`${name.trim()} added as contributor`);
+      setDuplicateWarningOpen(false);
+      setDuplicateMatch(null);
       setOpen(false);
       resetForm();
     } catch (error) {
@@ -97,23 +109,49 @@ export default function AddContributorDialog() {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !phone || !amount) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const normalizedName = normalizeContributorName(name);
+    const existingContributor = contributors.find(
+      (contributor) =>
+        normalizeContributorName(contributor.name) === normalizedName,
+    );
+
+    if (existingContributor) {
+      setDuplicateMatch({
+        name: existingContributor.name,
+        phone: existingContributor.phone,
+      });
+      setDuplicateWarningOpen(true);
+      return;
+    }
+
+    await submitContributor();
+  };
+
   const currentFrequency = FREQUENCY_OPTIONS.find((f) => f.value === frequency);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="secondary" className="gap-2">
-          <UserPlus className="w-4 h-4" />
-          Add Contributor
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="font-serif">
-            Add New Contributor
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="secondary" className="gap-2">
+            <UserPlus className="w-4 h-4" />
+            Add Contributor
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-serif">
+              Add New Contributor
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="contributor-name">Full Name</Label>
             <Input
@@ -240,13 +278,45 @@ export default function AddContributorDialog() {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Adding..." : "Add Contributor"}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Adding..." : "Add Contributor"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={duplicateWarningOpen}
+        onOpenChange={setDuplicateWarningOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Contributor name already exists</AlertDialogTitle>
+            <AlertDialogDescription>
+              {duplicateMatch
+                ? `${duplicateMatch.name} is already on your list with ${duplicateMatch.phone}.`
+                : "A contributor with this name is already on your list."} If this is a different person, click continue to add the contributor anyway.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={loading}
+              onClick={() => {
+                void submitContributor();
+              }}
+            >
+              {loading ? "Adding..." : "Continue anyway"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
+}
+
+function normalizeContributorName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function getOrdinalSuffix(n: number): string {

@@ -17,7 +17,6 @@ import RecordCollectionDialog from "./_components/record-collection-dialog.tsx";
 import VirtualCard from "../contributor/_components/virtual-card.tsx";
 import ContributorStats from "../contributor/_components/contributor-stats.tsx";
 import PaymentHistory from "../contributor/_components/payment-history.tsx";
-import AgentInfo from "../contributor/_components/agent-info.tsx";
 
 type Frequency = "daily" | "weekly" | "monthly";
 
@@ -201,16 +200,12 @@ export default function AgentContributorDetailPage() {
         monthlyDay={cardSummary.monthlyDay ?? undefined}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-6">
-          <ContributorStats contributorId={typedContributorId} />
-          <PaymentHistory
-            contributorId={typedContributorId}
-            title="Contributor Payment History"
-          />
-        </div>
-
-        <AgentInfo contributorId={typedContributorId} />
+      <div className="space-y-6">
+        <ContributorStats contributorId={typedContributorId} />
+        <PaymentHistory
+          contributorId={typedContributorId}
+          title="Contributor Payment History"
+        />
       </div>
     </div>
   );

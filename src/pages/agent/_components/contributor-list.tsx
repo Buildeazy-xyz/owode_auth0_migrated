@@ -51,6 +51,7 @@ import {
   CalendarClock,
   ArrowRightLeft,
   ChevronRight,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
@@ -91,10 +92,17 @@ function getOrdinalSuffix(n: number): string {
 
 export default function ContributorList() {
   const contributors = useQuery(api.contributors.listByAgent);
+  const [searchTerm, setSearchTerm] = useState("");
   const [editContributor, setEditContributor] =
     useState<Doc<"contributors"> | null>(null);
   const [withdrawContributor, setWithdrawContributor] =
     useState<Doc<"contributors"> | null>(null);
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredContributors =
+    contributors?.filter((contributor) =>
+      contributor.name.toLowerCase().includes(normalizedSearch),
+    ) ?? [];
 
   return (
     <Card>
@@ -125,15 +133,33 @@ export default function ContributorList() {
             </EmptyContent>
           </Empty>
         ) : (
-          <div className="space-y-2">
-            {contributors.map((c) => (
-              <ContributorRow
-                key={c._id}
-                contributor={c}
-                onEdit={() => setEditContributor(c)}
-                onRequestWithdrawal={() => setWithdrawContributor(c)}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search contributors by name"
+                className="pl-9"
               />
-            ))}
+            </div>
+
+            {filteredContributors.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                No contributors match “{searchTerm.trim()}”.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredContributors.map((c) => (
+                  <ContributorRow
+                    key={c._id}
+                    contributor={c}
+                    onEdit={() => setEditContributor(c)}
+                    onRequestWithdrawal={() => setWithdrawContributor(c)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

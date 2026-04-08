@@ -73,15 +73,6 @@ export default function AgentDashboard() {
       {/* Summary cards */}
       <DashboardStats />
 
-      <AgentRegistrationCard
-        user={{
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-        }}
-        verification={verification as AgentVerificationDetails | null | undefined}
-      />
-
       {/* Two-column layout for lists */}
       <div className="grid lg:grid-cols-2 gap-6">
         <CollectionHistory />
@@ -208,9 +199,6 @@ function PendingApprovalScreen({
         </CardContent>
       </Card>
 
-      <div className="mx-auto max-w-3xl">
-        <AgentRegistrationCard verification={verification} compact />
-      </div>
     </div>
   );
 }

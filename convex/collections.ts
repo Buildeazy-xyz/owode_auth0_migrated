@@ -345,16 +345,71 @@ export const getMyCollections = query({
   },
 });
 
-/** Helper: count how many weeks (starting from a given weekday) fall within a given month */
-function weeksInMonth(year: number, month: number, weekday: number): number {
-  let count = 0;
-  const daysInMonth = STANDARD_MONTH_DAYS;
-  for (let d = 1; d <= daysInMonth; d++) {
-    if (new Date(Date.UTC(year, month, d)).getUTCDay() === weekday) {
-      count++;
-    }
-  }
-  return count;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function startOfUtcDay(value: string | Date): Date {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+function addUtcDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * DAY_MS);
+}
+
+function addUtcMonths(date: Date, months: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+}
+
+function getUtcDayDiff(later: Date, earlier: Date): number {
+  return Math.max(0, Math.floor((later.getTime() - earlier.getTime()) / DAY_MS));
+}
+
+function getMonthsDiff(later: Date, earlier: Date): number {
+  return Math.max(
+    0,
+    (later.getUTCFullYear() - earlier.getUTCFullYear()) * 12 +
+      (later.getUTCMonth() - earlier.getUTCMonth()),
+  );
+}
+
+function getCycleAnchorDate(
+  allCollections: Array<{ collectedAt: string }>,
+): Date {
+  const oldestCollection = allCollections[allCollections.length - 1];
+  return startOfUtcDay(oldestCollection?.collectedAt ?? new Date());
+}
+
+function getDateCycle(anchorDate: Date, nowDate: Date, cycleLength: number) {
+  const elapsedDays = getUtcDayDiff(nowDate, anchorDate);
+  const cycleIndex = Math.floor(elapsedDays / cycleLength);
+  const cycleStart = addUtcDays(anchorDate, cycleIndex * cycleLength);
+
+  return {
+    cycleStart,
+    cycleEnd: addUtcDays(cycleStart, cycleLength),
+    currentSlot: Math.min(cycleLength, getUtcDayDiff(nowDate, cycleStart) + 1),
+  };
+}
+
+function getMonthCycle(anchorDate: Date, nowDate: Date, cycleLengthMonths: number) {
+  const elapsedMonths = getMonthsDiff(nowDate, anchorDate);
+  const cycleIndex = Math.floor(elapsedMonths / cycleLengthMonths);
+  const cycleStart = addUtcMonths(anchorDate, cycleIndex * cycleLengthMonths);
+
+  return {
+    cycleStart,
+    cycleEnd: addUtcMonths(cycleStart, cycleLengthMonths),
+    currentSlot: Math.min(
+      cycleLengthMonths,
+      getMonthsDiff(nowDate, cycleStart) + 1,
+    ),
+  };
+}
+
+function getWeeklyCycleLength(): number {
+  return Math.ceil(STANDARD_MONTH_DAYS / 7);
 }
 
 /** Virtual card summary for the current period (adapts to frequency) */
@@ -378,6 +433,8 @@ export const getMyCardSummary = query({
       .collect();
 
     const now = new Date();
+    const currentUtcDate = startOfUtcDay(now);
+    const cycleAnchorDate = getCycleAnchorDate(allCollections);
     const grossTotalSaved = allCollections.reduce((sum, c) => sum + c.amount, 0);
     const withdrawals = await ctx.db
       .query("withdrawal_requests")
@@ -391,25 +448,28 @@ export const getMyCardSummary = query({
     const totalSaved = Math.max(0, grossTotalSaved - paidWithdrawalsTotal);
 
     if (frequency === "daily") {
-      // Current month boundaries in UTC
-      const monthStart = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-      ).toISOString();
-      const monthEnd = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
-      ).toISOString();
-
-      const thisMonthCollections = allCollections.filter(
-        (c) => c.collectedAt >= monthStart && c.collectedAt < monthEnd,
+      const { cycleStart, cycleEnd, currentSlot } = getDateCycle(
+        cycleAnchorDate,
+        currentUtcDate,
+        STANDARD_MONTH_DAYS,
       );
-      const monthTotal = thisMonthCollections.reduce(
+
+      const thisCycleCollections = allCollections.filter((c) => {
+        const collectedAt = startOfUtcDay(c.collectedAt);
+        return collectedAt >= cycleStart && collectedAt < cycleEnd;
+      });
+      const periodTotal = thisCycleCollections.reduce(
         (sum, c) => sum + c.amount,
         0,
       );
 
       const paidDays = new Set<number>();
-      for (const c of thisMonthCollections) {
-        paidDays.add(new Date(c.collectedAt).getUTCDate());
+      for (const c of thisCycleCollections) {
+        const cycleDay =
+          getUtcDayDiff(startOfUtcDay(c.collectedAt), cycleStart) + 1;
+        if (cycleDay >= 1 && cycleDay <= STANDARD_MONTH_DAYS) {
+          paidDays.add(cycleDay);
+        }
       }
 
       const daysInMonth = STANDARD_MONTH_DAYS;
@@ -418,10 +478,10 @@ export const getMyCardSummary = query({
         frequency: "daily" as const,
         contributionAmount: contributor.dailyAmount,
         daysInMonth,
-        currentDay: now.getUTCDate(),
+        currentDay: currentSlot,
         paidDays: Array.from(paidDays).sort((a, b) => a - b),
         daysPaid: paidDays.size,
-        periodTotal: monthTotal,
+        periodTotal,
         totalSaved,
         grossTotalSaved,
         paidWithdrawalsTotal,
@@ -438,74 +498,46 @@ export const getMyCardSummary = query({
     }
 
     if (frequency === "weekly") {
-      // Current month boundaries in UTC
-      const monthStart = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-      ).toISOString();
-      const monthEnd = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
-      ).toISOString();
-
-      const thisMonthCollections = allCollections.filter(
-        (c) => c.collectedAt >= monthStart && c.collectedAt < monthEnd,
+      const { cycleStart, cycleEnd, currentSlot } = getDateCycle(
+        cycleAnchorDate,
+        currentUtcDate,
+        STANDARD_MONTH_DAYS,
       );
-      const periodTotal = thisMonthCollections.reduce(
+
+      const thisCycleCollections = allCollections.filter((c) => {
+        const collectedAt = startOfUtcDay(c.collectedAt);
+        return collectedAt >= cycleStart && collectedAt < cycleEnd;
+      });
+      const periodTotal = thisCycleCollections.reduce(
         (sum, c) => sum + c.amount,
         0,
       );
 
-      // Determine which weeks of the month have been paid
-      const weekDay = contributor.weeklyDay ?? 1; // default Monday
-      const totalWeeks = weeksInMonth(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        weekDay,
-      );
-
-      // Map collections to week numbers (1-based)
+      const totalWeeks = getWeeklyCycleLength();
       const paidWeekNumbers = new Set<number>();
+      for (const c of thisCycleCollections) {
+        const weekNumber = Math.min(
+          totalWeeks,
+          Math.floor(
+            getUtcDayDiff(startOfUtcDay(c.collectedAt), cycleStart) / 7,
+          ) + 1,
+        );
+        if (weekNumber >= 1) {
+          paidWeekNumbers.add(weekNumber);
+        }
+      }
+
       const daysInMonth = STANDARD_MONTH_DAYS;
-
-      // Find all occurrences of the target weekday in this month
-      const weekdayDates: number[] = [];
-      for (let d = 1; d <= daysInMonth; d++) {
-        if (
-          new Date(
-            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), d),
-          ).getUTCDay() === weekDay
-        ) {
-          weekdayDates.push(d);
-        }
-      }
-
-      for (const c of thisMonthCollections) {
-        const collDay = new Date(c.collectedAt).getUTCDate();
-        // Find the nearest week this falls into
-        let closestWeek = 1;
-        let minDist = Infinity;
-        for (let i = 0; i < weekdayDates.length; i++) {
-          const dist = Math.abs(collDay - weekdayDates[i]);
-          if (dist < minDist) {
-            minDist = dist;
-            closestWeek = i + 1;
-          }
-        }
-        paidWeekNumbers.add(closestWeek);
-      }
-
-      // Determine which week of the month we're in
-      let currentWeek = 1;
-      for (let i = 0; i < weekdayDates.length; i++) {
-        if (now.getUTCDate() >= weekdayDates[i]) {
-          currentWeek = i + 1;
-        }
-      }
+      const currentWeek = Math.min(
+        totalWeeks,
+        Math.floor((currentSlot - 1) / 7) + 1,
+      );
 
       return {
         frequency: "weekly" as const,
         contributionAmount: contributor.dailyAmount,
         daysInMonth,
-        currentDay: now.getUTCDate(),
+        currentDay: currentSlot,
         paidDays: [] as number[],
         daysPaid: paidWeekNumbers.size,
         periodTotal,
@@ -525,33 +557,52 @@ export const getMyCardSummary = query({
     }
 
     // Monthly frequency
-    // Current year boundaries
-    const yearStart = new Date(
-      Date.UTC(now.getUTCFullYear(), 0, 1),
-    ).toISOString();
-    const yearEnd = new Date(
-      Date.UTC(now.getUTCFullYear() + 1, 0, 1),
-    ).toISOString();
-
-    const thisYearCollections = allCollections.filter(
-      (c) => c.collectedAt >= yearStart && c.collectedAt < yearEnd,
+    const monthAnchorDate = new Date(
+      Date.UTC(
+        cycleAnchorDate.getUTCFullYear(),
+        cycleAnchorDate.getUTCMonth(),
+        1,
+      ),
     );
-    const periodTotal = thisYearCollections.reduce(
+    const currentMonthDate = new Date(
+      Date.UTC(
+        currentUtcDate.getUTCFullYear(),
+        currentUtcDate.getUTCMonth(),
+        1,
+      ),
+    );
+    const { cycleStart, cycleEnd, currentSlot } = getMonthCycle(
+      monthAnchorDate,
+      currentMonthDate,
+      12,
+    );
+
+    const thisCycleCollections = allCollections.filter((c) => {
+      const collectedAt = startOfUtcDay(c.collectedAt);
+      return collectedAt >= cycleStart && collectedAt < cycleEnd;
+    });
+    const periodTotal = thisCycleCollections.reduce(
       (sum, c) => sum + c.amount,
       0,
     );
 
-    // Map collections to months (0-based)
     const paidMonthNumbers = new Set<number>();
-    for (const c of thisYearCollections) {
-      paidMonthNumbers.add(new Date(c.collectedAt).getUTCMonth());
+    for (const c of thisCycleCollections) {
+      const collectedAt = new Date(c.collectedAt);
+      const collectionMonth = new Date(
+        Date.UTC(collectedAt.getUTCFullYear(), collectedAt.getUTCMonth(), 1),
+      );
+      const monthIndex = getMonthsDiff(collectionMonth, cycleStart);
+      if (monthIndex >= 0 && monthIndex < 12) {
+        paidMonthNumbers.add(monthIndex);
+      }
     }
 
     return {
       frequency: "monthly" as const,
       contributionAmount: contributor.dailyAmount,
       daysInMonth: STANDARD_MONTH_DAYS,
-      currentDay: now.getUTCDate(),
+      currentDay: currentSlot,
       paidDays: [] as number[],
       daysPaid: paidMonthNumbers.size,
       periodTotal,
@@ -566,7 +617,7 @@ export const getMyCardSummary = query({
       weeksInPeriod: undefined as number | undefined,
       currentWeek: undefined as number | undefined,
       paidMonths: Array.from(paidMonthNumbers).sort((a, b) => a - b),
-      currentMonth: now.getUTCMonth(),
+      currentMonth: currentSlot - 1,
     };
   },
 });

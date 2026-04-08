@@ -8,9 +8,9 @@ import { Banknote, CalendarCheck, TrendingUp, Target, Wallet } from "lucide-reac
 type Frequency = "daily" | "weekly" | "monthly";
 
 const PERIOD_LABELS: Record<Frequency, string> = {
-  daily: "This Month",
-  weekly: "This Month",
-  monthly: "This Year",
+  daily: "Current Cycle",
+  weekly: "Current Cycle",
+  monthly: "Current Cycle",
 };
 
 export default function ContributorStats({
@@ -67,7 +67,7 @@ export default function ContributorStats({
       bg: "bg-blue-100 dark:bg-blue-900/20",
     },
     {
-      label: `${freq === "monthly" ? "Yearly" : "Monthly"} Target`,
+      label: "Cycle Target",
       value: `₦${card.periodTarget.toLocaleString()}`,
       icon: Target,
       color: "text-chart-3",

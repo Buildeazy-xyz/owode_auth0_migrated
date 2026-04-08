@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import { Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 
@@ -52,17 +51,10 @@ export default function VirtualCard({
   monthlyDay,
 }: VirtualCardProps) {
   const paidDaySet = new Set(paidDays);
-  const now = new Date();
-  const monthName = format(now, "MMMM yyyy");
-  const yearLabel = now.getFullYear().toString();
   const progressPercent = periodTarget > 0 ? (periodTotal / periodTarget) * 100 : 0;
 
   const periodLabel =
-    frequency === "daily"
-      ? monthName
-      : frequency === "weekly"
-        ? monthName
-        : yearLabel;
+    frequency === "monthly" ? "12-Month Cycle" : "31-Day Cycle";
 
   const scheduleNote =
     frequency === "weekly" && weeklyDay !== undefined

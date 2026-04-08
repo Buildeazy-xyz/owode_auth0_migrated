@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         "openid profile email offline_access"
       }
       response_type={import.meta.env.VITE_AUTH0_RESPONSE_TYPE ?? "code"}
-      automaticSilentRenew={false}
+      automaticSilentRenew={true}
       monitorSession={false}
       metadata={{
         issuer: authority,

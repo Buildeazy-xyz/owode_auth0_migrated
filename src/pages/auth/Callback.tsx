@@ -15,10 +15,17 @@ export default function CallbackPage() {
   const [showTimeoutHelp, setShowTimeoutHelp] = useState(false);
 
   useEffect(() => {
-    if (!auth.isLoading && !isConvexLoading) {
+    const isStillWaitingForAuth =
+      auth.isLoading ||
+      isConvexLoading ||
+      (auth.isAuthenticated && !isConvexAuthenticated);
+
+    if (!isStillWaitingForAuth) {
+      setShowTimeoutHelp(false);
       return;
     }
 
+    setShowTimeoutHelp(false);
     const timer = window.setTimeout(() => {
       setShowTimeoutHelp(true);
     }, 15000);
@@ -26,7 +33,12 @@ export default function CallbackPage() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [auth.isLoading, isConvexLoading]);
+  }, [
+    auth.isAuthenticated,
+    auth.isLoading,
+    isConvexAuthenticated,
+    isConvexLoading,
+  ]);
 
   useEffect(() => {
     if (auth.error) {
@@ -36,7 +48,7 @@ export default function CallbackPage() {
 
     if (showTimeoutHelp && auth.isAuthenticated && !isConvexAuthenticated) {
       setSetupError(
-        "Authentication is still waiting on the Convex backend. Please make sure `pnpm exec convex dev` is running, then try sign-in again.",
+        "We could not finish signing you in. Please return home and sign in again. If it still hangs, refresh once and retry.",
       );
       return;
     }

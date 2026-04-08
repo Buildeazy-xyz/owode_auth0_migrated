@@ -21,22 +21,22 @@ function useConvexOidcAuth() {
           return null;
         }
 
-        const currentToken = auth.user?.id_token ?? auth.user?.access_token ?? null;
-
-        if (!forceRefreshToken) {
-          return currentToken;
+        if (forceRefreshToken) {
+          console.warn(
+            "Convex requested a token refresh, but silent refresh is disabled for this Auth0 setup. Reusing the current token.",
+          );
         }
 
-        try {
-          const refreshedUser = await auth.signinSilent();
-          return refreshedUser?.id_token ?? refreshedUser?.access_token ?? currentToken;
-        } catch (error) {
-          console.error("Unable to silently refresh the Auth0 session:", error);
-          return currentToken;
-        }
+        return auth.user?.access_token ?? auth.user?.id_token ?? null;
       },
     }),
-    [auth],
+    [
+      auth.activeNavigator,
+      auth.isAuthenticated,
+      auth.isLoading,
+      auth.user?.access_token,
+      auth.user?.id_token,
+    ],
   );
 }
 

@@ -237,7 +237,7 @@ export default function AddContributorDialog() {
             </div>
           )}
 
-          {/* Monthly day picker */}
+          {/* Monthly day picker */} 
           {frequency === "monthly" && (
             <div className="space-y-2">
               <Label htmlFor="monthly-day">Collection Day of Month</Label>

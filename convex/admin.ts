@@ -32,6 +32,16 @@ async function requireAdmin(
   return user;
 }
 
+const PENDING_IMPORT_PHONE_PREFIX = "__pending_import__:";
+
+function normalizeContributorName(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function isPendingImportPhone(phone: string) {
+  return phone.startsWith(PENDING_IMPORT_PHONE_PREFIX);
+}
+
 // ─── Queries ──────────────────────────────────────────────────────
 
 /** Platform-wide stats for the admin overview */
@@ -415,5 +425,175 @@ export const bulkConfirmByAgent = mutation({
     }
 
     return { confirmedCount: pending.length };
+  },
+});
+
+export const listPendingContributorImports = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await requireAdmin(ctx);
+
+    const imports = await ctx.db
+      .query("contributors")
+      .withIndex("by_agent", (q) => q.eq("agentId", admin._id))
+      .collect();
+
+    return imports
+      .filter((contributor) => isPendingImportPhone(contributor.phone))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+export const bulkImportContributors = mutation({
+  args: {
+    rows: v.array(
+      v.object({
+        name: v.string(),
+        amount: v.number(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const existingContributors = await ctx.db.query("contributors").take(8000);
+    const existingNames = new Set(
+      existingContributors.map((contributor) =>
+        normalizeContributorName(contributor.name),
+      ),
+    );
+    const seenInImport = new Set<string>();
+    const now = new Date().toISOString();
+    const batchKey = Date.now();
+
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    for (let index = 0; index < args.rows.length; index += 1) {
+      const row = args.rows[index];
+      const cleanedName = row.name.trim().replace(/\s+/g, " ");
+      const normalizedName = normalizeContributorName(cleanedName);
+      const amount = Number(row.amount);
+
+      if (!cleanedName || !Number.isFinite(amount) || amount <= 0) {
+        skippedCount += 1;
+        continue;
+      }
+
+      if (seenInImport.has(normalizedName) || existingNames.has(normalizedName)) {
+        skippedCount += 1;
+        continue;
+      }
+
+      await ctx.db.insert("contributors", {
+        name: cleanedName,
+        phone: `${PENDING_IMPORT_PHONE_PREFIX}${batchKey}:${index}`,
+        agentId: admin._id,
+        dailyAmount: amount,
+        frequency: undefined,
+        weeklyDay: undefined,
+        monthlyDay: undefined,
+        startDate: now,
+        status: "inactive",
+      });
+
+      seenInImport.add(normalizedName);
+      existingNames.add(normalizedName);
+      importedCount += 1;
+    }
+
+    return {
+      importedCount,
+      skippedCount,
+    };
+  },
+});
+
+export const assignImportedContributor = mutation({
+  args: {
+    contributorId: v.id("contributors"),
+    phone: v.string(),
+    frequency: v.union(
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
+    agentId: v.id("users"),
+    weeklyDay: v.optional(v.number()),
+    monthlyDay: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const contributor = await ctx.db.get(args.contributorId);
+
+    if (!contributor) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Contributor not found",
+      });
+    }
+
+    if (contributor.agentId !== admin._id || !isPendingImportPhone(contributor.phone)) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "This contributor is not waiting in your admin intake list",
+      });
+    }
+
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent || agent.role !== "agent") {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Please choose a valid agent",
+      });
+    }
+
+    const phone = args.phone.trim();
+    if (!phone) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Phone number is required",
+      });
+    }
+
+    if (args.frequency === "weekly" && args.weeklyDay === undefined) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Select the weekly collection day",
+      });
+    }
+
+    if (args.frequency === "monthly" && args.monthlyDay === undefined) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Select the monthly collection day",
+      });
+    }
+
+    const phoneMatches = await ctx.db
+      .query("contributors")
+      .withIndex("by_phone", (q) => q.eq("phone", phone))
+      .collect();
+    const duplicatePhone = phoneMatches.find(
+      (match) => match._id !== contributor._id,
+    );
+
+    if (duplicatePhone) {
+      throw new ConvexError({
+        code: "CONFLICT",
+        message: "Another contributor is already using this phone number",
+      });
+    }
+
+    await ctx.db.patch(args.contributorId, {
+      phone,
+      agentId: args.agentId,
+      frequency: args.frequency,
+      weeklyDay: args.frequency === "weekly" ? args.weeklyDay : undefined,
+      monthlyDay: args.frequency === "monthly" ? args.monthlyDay : undefined,
+      status: "active",
+      startDate: contributor.startDate ?? new Date().toISOString(),
+    });
+
+    return { contributorId: args.contributorId, agentName: agent.name ?? "Agent" };
   },
 });

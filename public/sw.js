@@ -1,5 +1,5 @@
-const CACHE_NAME = "owode-v2";
-const PUSH_NOTIFICATIONS_PAUSED = true;
+const CACHE_NAME = "owode-v3";
+const PUSH_NOTIFICATIONS_PAUSED = false;
 const urlsToCache = ["/", "/icon/icon-192.png", "/icon/icon-512.png", "/offline.html"];
 
 // Install event - cache core assets

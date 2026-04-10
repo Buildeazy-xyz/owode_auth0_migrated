@@ -5,19 +5,12 @@ export function useServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
 
     void navigator.serviceWorker
-      .getRegistrations()
-      .then(async (registrations) => {
-        await Promise.all(
-          registrations.map((registration) => registration.unregister()),
-        );
-
-        if ("caches" in window) {
-          const cacheKeys = await caches.keys();
-          await Promise.all(cacheKeys.map((key) => caches.delete(key)));
-        }
+      .register("/sw.js")
+      .then((registration) => {
+        console.log("Service worker registered:", registration.scope);
       })
       .catch((error) => {
-        console.log("Service worker cleanup failed:", error);
+        console.log("Service worker registration failed:", error);
       });
   }, []);
 }

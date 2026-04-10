@@ -449,7 +449,7 @@ export const bulkImportContributors = mutation({
     rows: v.array(
       v.object({
         name: v.string(),
-        amount: v.number(),
+        amount: v.optional(v.number()),
       }),
     ),
   },
@@ -472,9 +472,9 @@ export const bulkImportContributors = mutation({
       const row = args.rows[index];
       const cleanedName = row.name.trim().replace(/\s+/g, " ");
       const normalizedName = normalizeContributorName(cleanedName);
-      const amount = Number(row.amount);
+      const amount = row.amount === undefined ? 0 : Number(row.amount);
 
-      if (!cleanedName || !Number.isFinite(amount) || amount <= 0) {
+      if (!cleanedName || !Number.isFinite(amount) || amount < 0) {
         skippedCount += 1;
         continue;
       }
@@ -512,6 +512,7 @@ export const assignImportedContributor = mutation({
   args: {
     contributorId: v.id("contributors"),
     phone: v.string(),
+    dailyAmount: v.number(),
     frequency: v.union(
       v.literal("daily"),
       v.literal("weekly"),
@@ -555,6 +556,14 @@ export const assignImportedContributor = mutation({
       });
     }
 
+    const dailyAmount = Number(args.dailyAmount);
+    if (!Number.isFinite(dailyAmount) || dailyAmount <= 0) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Contribution amount must be greater than zero",
+      });
+    }
+
     if (args.frequency === "weekly" && args.weeklyDay === undefined) {
       throw new ConvexError({
         code: "BAD_REQUEST",
@@ -587,6 +596,7 @@ export const assignImportedContributor = mutation({
     await ctx.db.patch(args.contributorId, {
       phone,
       agentId: args.agentId,
+      dailyAmount,
       frequency: args.frequency,
       weeklyDay: args.frequency === "weekly" ? args.weeklyDay : undefined,
       monthlyDay: args.frequency === "monthly" ? args.monthlyDay : undefined,

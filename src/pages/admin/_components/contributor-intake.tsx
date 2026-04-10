@@ -78,6 +78,7 @@ export default function ContributorIntake() {
   const [selectedContributorId, setSelectedContributorId] =
     useState<Id<"contributors"> | null>(null);
   const [phone, setPhone] = useState("+234");
+  const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("daily");
   const [agentId, setAgentId] = useState("");
   const [weeklyDay, setWeeklyDay] = useState("1");
@@ -125,8 +126,15 @@ export default function ContributorIntake() {
   };
 
   const openAssignDialog = (contributorId: Id<"contributors">) => {
+    const contributor = pendingImports.find((item) => item._id === contributorId);
+
     setSelectedContributorId(contributorId);
     setPhone("+234");
+    setAmount(
+      contributor && contributor.dailyAmount > 0
+        ? String(contributor.dailyAmount)
+        : "",
+    );
     setFrequency("daily");
     setAgentId("");
     setWeeklyDay("1");
@@ -138,8 +146,8 @@ export default function ContributorIntake() {
       return;
     }
 
-    if (!phone.trim() || !agentId) {
-      toast.error("Add the phone number and choose the agent.");
+    if (!phone.trim() || !amount.trim() || !agentId) {
+      toast.error("Add the phone number, amount, and choose the agent.");
       return;
     }
 
@@ -148,6 +156,7 @@ export default function ContributorIntake() {
       await assignImportedContributor({
         contributorId: selectedContributor._id,
         phone: phone.trim(),
+        dailyAmount: Number(amount),
         frequency,
         agentId: agentId as Id<"users">,
         weeklyDay: frequency === "weekly" ? Number(weeklyDay) : undefined,
@@ -179,22 +188,21 @@ export default function ContributorIntake() {
             Excel Contributor Intake
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Paste rows copied from Excel. Only the name and amount are imported now;
-            any contributor already on the system is skipped automatically.
+            Paste rows copied from Excel or a plain list of names. Existing contributors are skipped automatically, and any missing amount can be completed during admin setup.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="excel-import">Paste Excel rows</Label>
+            <Label htmlFor="excel-import">Paste Excel rows or contributor names</Label>
             <Textarea
               id="excel-import"
               value={rawImportText}
               onChange={(event) => setRawImportText(event.target.value)}
-              placeholder={"ADEYEMI PEACE VICTORIA\t500\nALIYU TEMITOPE VICTORIA\t500\nADEWOLE KAYODE\t500"}
+              placeholder={"ADEYEMI PEACE VICTORIA\t500\nALIYU TEMITOPE VICTORIA\t500\nOMIDIJI MATHEW. B"}
               className="min-h-40"
             />
             <p className="text-xs text-muted-foreground">
-              Copy directly from Excel and paste here. Tabs and extra spaces are supported.
+              Copy directly from Excel and paste here. Full rows with amounts or just names are both supported.
             </p>
           </div>
 
@@ -217,7 +225,11 @@ export default function ContributorIntake() {
                 {parsedRows.slice(0, 6).map((row, index) => (
                   <div key={`${row.name}-${index}`} className="flex items-center justify-between gap-3">
                     <span className="truncate">{row.name}</span>
-                    <span className="font-medium text-foreground">₦{row.amount.toLocaleString()}</span>
+                    <span className="font-medium text-foreground">
+                      {typeof row.amount === "number"
+                        ? `₦${row.amount.toLocaleString()}`
+                        : "Amount pending"}
+                    </span>
                   </div>
                 ))}
                 {parsedRows.length > 6 && (
@@ -274,7 +286,11 @@ export default function ContributorIntake() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{contributor.name}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>Amount: ₦{contributor.dailyAmount.toLocaleString()}</span>
+                      <span>
+                        Amount: {contributor.dailyAmount > 0
+                          ? `₦${contributor.dailyAmount.toLocaleString()}`
+                          : "pending setup"}
+                      </span>
                       <Badge
                         variant="secondary"
                         className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
@@ -312,7 +328,9 @@ export default function ContributorIntake() {
             <div className="rounded-lg bg-muted/50 p-3 text-sm">
               <p className="font-medium">{selectedContributor?.name ?? "Contributor"}</p>
               <p className="text-muted-foreground">
-                Imported amount: ₦{selectedContributor?.dailyAmount?.toLocaleString() ?? 0}
+                Imported amount: {selectedContributor && selectedContributor.dailyAmount > 0
+                  ? `₦${selectedContributor.dailyAmount.toLocaleString()}`
+                  : "not provided yet"}
               </p>
             </div>
 
@@ -326,6 +344,18 @@ export default function ContributorIntake() {
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
                 placeholder="+2348012345678"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pending-amount">Contribution Amount (₦)</Label>
+              <Input
+                id="pending-amount"
+                type="number"
+                min="1"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                placeholder="500"
               />
             </div>
 
@@ -405,7 +435,7 @@ export default function ContributorIntake() {
               </p>
             </div>
 
-            <Button className="w-full" onClick={handleAssign} disabled={saving || !agentId.trim()}>
+            <Button className="w-full" onClick={handleAssign} disabled={saving || !agentId.trim() || !amount.trim()}>
               {saving ? "Saving..." : "Save and move to agent"}
             </Button>
           </div>
@@ -426,22 +456,38 @@ function parsePastedContributorRows(rawText: string) {
         .map((part) => part.trim())
         .filter(Boolean);
 
-      if (parts.length < 2) {
+      if (parts.length === 0) {
         return null;
+      }
+
+      if (parts.length === 1) {
+        return {
+          name: parts[0],
+          amount: undefined,
+        };
       }
 
       const amountText = parts.at(-1)?.replace(/[₦,]/g, "") ?? "";
-      const amount = Number(amountText);
-      const name = parts.slice(0, -1).join(" ");
+      const parsedAmount = Number(amountText);
 
-      if (!name || !Number.isFinite(amount) || amount <= 0) {
-        return null;
+      if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
+        const name = parts.slice(0, -1).join(" ");
+        if (!name) {
+          return null;
+        }
+
+        return {
+          name,
+          amount: parsedAmount,
+        };
       }
 
       return {
-        name,
-        amount,
+        name: parts.join(" "),
+        amount: undefined,
       };
     })
-    .filter((row): row is { name: string; amount: number } => row !== null);
+    .filter(
+      (row): row is { name: string; amount?: number } => row !== null && !!row.name,
+    );
 }

@@ -14,7 +14,8 @@ const MAILGUN_SENDER_EMAIL =
   process.env.MAILGUN_FROM_EMAIL ??
   process.env.SENDER_EMAIL ??
   "OWODE <mailgun@mg.example.com>";
-const EMAIL_NOTIFICATIONS_PAUSED = true;
+const EMAIL_NOTIFICATIONS_PAUSED = false;
+const CONTRIBUTOR_ONBOARDING_EMAILS_PAUSED = true;
 
 async function sendViaMailgun({
   to,
@@ -242,6 +243,14 @@ export const sendContributorWelcomeEmail = internalAction({
     amount: v.number(),
   },
   handler: async (_ctx, { to, contributorName, agentName, frequency, amount }) => {
+    if (CONTRIBUTOR_ONBOARDING_EMAILS_PAUSED) {
+      console.info("Contributor onboarding emails are temporarily paused:", {
+        to,
+        contributorName,
+      });
+      return;
+    }
+
     try {
       await sendEmail({
         to,

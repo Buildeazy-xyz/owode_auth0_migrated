@@ -41,7 +41,8 @@ function getFromNumber(): string {
   return normalizePhoneNumber(num, "Twilio from number");
 }
 
-const SMS_NOTIFICATIONS_PAUSED = true;
+const SMS_NOTIFICATIONS_PAUSED = false;
+const CONTRIBUTOR_ONBOARDING_SMS_PAUSED = true;
 
 function shouldSkipSms(to: string) {
   if (!SMS_NOTIFICATIONS_PAUSED) {
@@ -150,6 +151,14 @@ export const sendContributorWelcomeSMS = internalAction({
   },
   handler: async (_ctx, { to, contributorName, agentName, frequency, amount }) => {
     if (shouldSkipSms(to)) {
+      return;
+    }
+
+    if (CONTRIBUTOR_ONBOARDING_SMS_PAUSED) {
+      console.info("Contributor onboarding SMS is temporarily paused:", {
+        to,
+        contributorName,
+      });
       return;
     }
 

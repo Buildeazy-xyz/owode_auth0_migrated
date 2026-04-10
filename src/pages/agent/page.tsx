@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api.js";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
@@ -11,6 +12,10 @@ import {
   CardTitle,
 } from "@/components/ui/card.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Label } from "@/components/ui/label.tsx";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   Clock,
@@ -51,7 +56,13 @@ export default function AgentDashboard() {
 
   // Gate: agent must be approved to access the full dashboard
   if (user.agentStatus !== "approved") {
-    return <PendingApprovalScreen status={user.agentStatus} verification={verification} />;
+    return (
+      <PendingApprovalScreen
+        status={user.agentStatus}
+        verification={verification}
+        currentName={user.name}
+      />
+    );
   }
 
   return (
@@ -69,6 +80,8 @@ export default function AgentDashboard() {
           <RecordCollectionDialog />
         </div>
       </div>
+
+      <AgentNameCard currentName={user.name} />
 
       {/* Summary cards */}
       <DashboardStats />
@@ -139,18 +152,90 @@ const STATUS_CONFIG: Record<
   },
 };
 
+function AgentNameCard({ currentName }: { currentName?: string }) {
+  const saveAgentName = useMutation(api.users.setAgentDisplayName);
+  const [draftName, setDraftName] = useState(currentName ?? "");
+  const [saving, setSaving] = useState(false);
+  const isLocked = Boolean(currentName?.trim());
+
+  useEffect(() => {
+    setDraftName(currentName ?? "");
+  }, [currentName]);
+
+  const handleSave = async () => {
+    const trimmedName = draftName.trim().replace(/\s+/g, " ");
+    if (!trimmedName) {
+      toast.error("Please enter your full name first.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await saveAgentName({ name: trimmedName });
+      toast.success("Your name has been saved and locked.");
+    } catch (error) {
+      if (error instanceof ConvexError) {
+        const data = error.data as { message?: string };
+        toast.error(data.message ?? "Failed to save your name.");
+      } else {
+        toast.error("Failed to save your name.");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="font-serif">Agent name</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {isLocked
+            ? "Your saved name is locked and cannot be changed."
+            : "Add your name once here. After saving it, the name cannot be changed."}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="agent-dashboard-name">Full name</Label>
+          <Input
+            id="agent-dashboard-name"
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
+            placeholder="Enter your full name"
+            disabled={isLocked || saving}
+          />
+        </div>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={isLocked || saving || !draftName.trim()}
+        >
+          {isLocked ? "Name locked" : saving ? "Saving..." : "Save name"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PendingApprovalScreen({
   status,
   verification,
+  currentName,
 }: {
   status: VerificationStatus | undefined;
   verification: AgentVerificationDetails | null | undefined;
+  currentName?: string;
 }) {
   const config = STATUS_CONFIG[status ?? "pending"] ?? STATUS_CONFIG.pending;
   const Icon = config.icon;
 
   return (
     <div className="space-y-6 py-20 px-4">
+      <div className="mx-auto max-w-md">
+        <AgentNameCard currentName={currentName} />
+      </div>
+
       <Card className="max-w-md w-full mx-auto text-center">
         <CardHeader>
           <div

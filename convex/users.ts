@@ -137,7 +137,7 @@ export const updateCurrentUser = mutation({
         verifiedAt?: string;
       } = {};
 
-      if (identity.name && identity.name !== user.name) {
+      if (identity.name && !user.name?.trim()) {
         patch.name = identity.name;
       }
       if (identity.email && identity.email !== user.email) {
@@ -237,6 +237,51 @@ export const getCurrentUser = query({
       )
       .unique();
     return user;
+  },
+});
+
+export const setAgentDisplayName = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique();
+
+    if (!user || user.role !== "agent") {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Only agents can set their dashboard name",
+      });
+    }
+
+    const trimmedName = args.name.trim().replace(/\s+/g, " ");
+    if (!trimmedName) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Please enter your full name",
+      });
+    }
+
+    if (user.name?.trim()) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Your agent name has already been saved and cannot be changed",
+      });
+    }
+
+    await ctx.db.patch(user._id, { name: trimmedName });
+    return { name: trimmedName };
   },
 });
 

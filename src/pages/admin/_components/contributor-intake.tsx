@@ -128,7 +128,7 @@ export default function ContributorIntake() {
     setSelectedContributorId(contributorId);
     setPhone("+234");
     setFrequency("daily");
-    setAgentId(agents[0]?._id ?? "");
+    setAgentId("");
     setWeeklyDay("1");
     setMonthlyDay("1");
   };
@@ -385,10 +385,12 @@ export default function ContributorIntake() {
             )}
 
             <div className="space-y-2">
-              <Label>Owning Agent</Label>
+              <Label>
+                Owning Agent <span className="text-destructive">*</span>
+              </Label>
               <Select value={agentId} onValueChange={setAgentId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select the agent" />
+                  <SelectValue placeholder="Select the agent who owns this contributor" />
                 </SelectTrigger>
                 <SelectContent>
                   {agents.map((agent) => (
@@ -398,9 +400,12 @@ export default function ContributorIntake() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                You must choose the agent before this contributor can be saved.
+              </p>
             </div>
 
-            <Button className="w-full" onClick={handleAssign} disabled={saving}>
+            <Button className="w-full" onClick={handleAssign} disabled={saving || !agentId.trim()}>
               {saving ? "Saving..." : "Save and move to agent"}
             </Button>
           </div>

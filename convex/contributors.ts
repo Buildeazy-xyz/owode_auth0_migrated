@@ -271,10 +271,12 @@ export const listByAgent = query({
       });
     }
 
-    return await ctx.db
+    const contributors = await ctx.db
       .query("contributors")
       .withIndex("by_agent", (q) => q.eq("agentId", user._id))
       .collect();
+
+    return contributors.sort((a, b) => a._creationTime - b._creationTime);
   },
 });
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api.js";
@@ -70,10 +70,14 @@ export default function ContributorIntake() {
   const assignImportedContributor = useMutation(
     api.admin.assignImportedContributor,
   );
+  const cleanupStaleContributorImports = useMutation(
+    api.admin.cleanupStaleContributorImports,
+  );
 
   const [rawImportText, setRawImportText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [importing, setImporting] = useState(false);
+  const hasAttemptedCleanupRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [selectedContributorId, setSelectedContributorId] =
     useState<Id<"contributors"> | null>(null);
@@ -99,6 +103,17 @@ export default function ContributorIntake() {
   const selectedContributor =
     pendingImports.find((contributor) => contributor._id === selectedContributorId) ??
     null;
+
+  useEffect(() => {
+    if (pendingImportsQuery === undefined || hasAttemptedCleanupRef.current) {
+      return;
+    }
+
+    hasAttemptedCleanupRef.current = true;
+    void cleanupStaleContributorImports().catch((error) => {
+      console.error("Failed to clean stale contributor intake records:", error);
+    });
+  }, [cleanupStaleContributorImports, pendingImportsQuery]);
 
   const handleImport = async () => {
     if (parsedRows.length === 0) {

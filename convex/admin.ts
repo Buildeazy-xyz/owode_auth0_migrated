@@ -437,10 +437,54 @@ export const listPendingContributorImports = query({
       .query("contributors")
       .withIndex("by_agent", (q) => q.eq("agentId", admin._id))
       .collect();
+    const allContributors = await ctx.db.query("contributors").take(8000);
+
+    const assignedNames = new Set(
+      allContributors
+        .filter((contributor) => !isPendingImportPhone(contributor.phone))
+        .map((contributor) => normalizeContributorName(contributor.name)),
+    );
 
     return imports
       .filter((contributor) => isPendingImportPhone(contributor.phone))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .filter(
+        (contributor) =>
+          !assignedNames.has(normalizeContributorName(contributor.name)),
+      )
+      .sort((a, b) => a._creationTime - b._creationTime);
+  },
+});
+
+export const cleanupStaleContributorImports = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await requireAdmin(ctx);
+
+    const imports = await ctx.db
+      .query("contributors")
+      .withIndex("by_agent", (q) => q.eq("agentId", admin._id))
+      .collect();
+    const allContributors = await ctx.db.query("contributors").take(8000);
+
+    const assignedNames = new Set(
+      allContributors
+        .filter((contributor) => !isPendingImportPhone(contributor.phone))
+        .map((contributor) => normalizeContributorName(contributor.name)),
+    );
+
+    let removedCount = 0;
+
+    for (const contributor of imports) {
+      if (
+        isPendingImportPhone(contributor.phone) &&
+        assignedNames.has(normalizeContributorName(contributor.name))
+      ) {
+        await ctx.db.delete(contributor._id);
+        removedCount += 1;
+      }
+    }
+
+    return { removedCount };
   },
 });
 

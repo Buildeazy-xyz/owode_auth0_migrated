@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+// src/pages/agent/page.tsx
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
@@ -13,9 +13,6 @@ import {
 } from "@/components/ui/card.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Input } from "@/components/ui/input.tsx";
-import { Label } from "@/components/ui/label.tsx";
-import { toast } from "sonner";
 import {
   AlertTriangle,
   Clock,
@@ -39,7 +36,6 @@ export default function AgentDashboard() {
   const verification = useQuery(api.agentVerification.getMyVerification);
   const navigate = useNavigate();
 
-  // Redirect if user doesn't have agent role
   useEffect(() => {
     if (user && user.role !== "agent") {
       navigate("/onboarding", { replace: true });
@@ -54,7 +50,6 @@ export default function AgentDashboard() {
     );
   }
 
-  // Gate: agent must be approved to access the full dashboard
   if (user.agentStatus !== "approved") {
     return (
       <PendingApprovalScreen
@@ -67,7 +62,6 @@ export default function AgentDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold font-serif">Dashboard</h1>
@@ -83,10 +77,8 @@ export default function AgentDashboard() {
 
       <AgentNameCard currentName={user.name} />
 
-      {/* Summary cards */}
       <DashboardStats />
 
-      {/* Two-column layout for lists */}
       <div className="grid lg:grid-cols-2 gap-6">
         <CollectionHistory />
         <ContributorList />
@@ -113,7 +105,7 @@ type AgentVerificationDetails = {
   userEmail?: string;
 };
 
-const STATUS_CONFIG: Record<
+const STATUS_CONFIG: Record
   string,
   {
     icon: typeof Clock;
@@ -153,66 +145,18 @@ const STATUS_CONFIG: Record<
 };
 
 function AgentNameCard({ currentName }: { currentName?: string }) {
-  const saveAgentName = useMutation(api.users.setAgentDisplayName);
-  const [draftName, setDraftName] = useState(currentName ?? "");
-  const [saving, setSaving] = useState(false);
-  const isLocked = Boolean(currentName?.trim());
-
-  useEffect(() => {
-    setDraftName(currentName ?? "");
-  }, [currentName]);
-
-  const handleSave = async () => {
-    const trimmedName = draftName.trim().replace(/\s+/g, " ");
-    if (!trimmedName) {
-      toast.error("Please enter your full name first.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await saveAgentName({ name: trimmedName });
-      toast.success("Your name has been saved and locked.");
-    } catch (error) {
-      if (error instanceof ConvexError) {
-        const data = error.data as { message?: string };
-        toast.error(data.message ?? "Failed to save your name.");
-      } else {
-        toast.error("Failed to save your name.");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="font-serif">Agent name</CardTitle>
         <p className="text-sm text-muted-foreground">
-          {isLocked
-            ? "Your saved name is locked and cannot be changed."
-            : "Add your name once here. After saving it, the name cannot be changed."}
+          Only an admin can set or change your display name.
         </p>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-2">
-          <Label htmlFor="agent-dashboard-name">Full name</Label>
-          <Input
-            id="agent-dashboard-name"
-            value={draftName}
-            onChange={(event) => setDraftName(event.target.value)}
-            placeholder="Enter your full name"
-            disabled={isLocked || saving}
-          />
-        </div>
-        <Button
-          type="button"
-          onClick={handleSave}
-          disabled={isLocked || saving || !draftName.trim()}
-        >
-          {isLocked ? "Name locked" : saving ? "Saving..." : "Save name"}
-        </Button>
+      <CardContent>
+        <p className="text-sm font-medium">
+          {currentName?.trim() ? currentName : "Not set yet — contact an admin."}
+        </p>
       </CardContent>
     </Card>
   );
@@ -254,7 +198,6 @@ function PendingApprovalScreen({
             {status ?? "pending"}
           </Badge>
 
-          {/* Show rejection reason if applicable */}
           {status === "rejected" && verification?.rejectionReason && (
             <div className="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-left">
               <div className="flex items-start gap-2">
@@ -379,7 +322,7 @@ function AgentRegistrationCard({
         </div>
 
         {verification.govIdUrl && (
-          <a
+          
             href={verification.govIdUrl}
             target="_blank"
             rel="noreferrer"

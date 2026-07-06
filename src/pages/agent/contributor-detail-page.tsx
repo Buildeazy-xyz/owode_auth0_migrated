@@ -1,3 +1,4 @@
+// src/pages/agent/contributor-detail-page.tsx
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
@@ -86,12 +87,12 @@ export default function AgentContributorDetailPage() {
     );
   }
 
-  if (!user || user.role !== "agent") {
+  if (!user || (user.role !== "agent" && user.role !== "admin")) {
     return <Navigate to="/onboarding" replace />;
   }
 
   if (!profile || !cardSummary) {
-    return <Navigate to="/agent" replace />;
+    return <Navigate to={user.role === "admin" ? "/admin" : "/agent"} replace />;
   }
 
   const contributionSuffix = getContributionSuffix(profile.frequency);
@@ -108,7 +109,7 @@ export default function AgentContributorDetailPage() {
           <Button
             variant="ghost"
             className="w-fit gap-2 px-0"
-            onClick={() => navigate("/agent")}
+            onClick={() => navigate(user.role === "admin" ? "/admin" : "/agent")}
           >
             <ArrowLeft className="h-4 w-4" />
             Back to contributors

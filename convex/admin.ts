@@ -1,3 +1,4 @@
+// convex/admin.ts
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel.d.ts";
@@ -50,7 +51,6 @@ export const getPlatformStats = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
 
-    // All agents
     const allUsers = await ctx.db.query("users").collect();
     const agents = allUsers.filter((u) => u.role === "agent");
     const contributors = await ctx.db.query("contributors").collect();
@@ -58,13 +58,11 @@ export const getPlatformStats = query({
       (c) => c.status === "active",
     ).length;
 
-    // Today boundaries (UTC)
     const now = new Date();
     const todayStart = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     ).toISOString();
 
-    // All collections via scan (admin only, expected volume manageable)
     const allCollections = await ctx.db
       .query("collections")
       .order("desc")
@@ -131,6 +129,36 @@ export const getPlatformStats = query({
   },
 });
 
+/** Admin-only: update an agent's display name */
+export const updateAgentName = mutation({
+  args: {
+    agentId: v.id("users"),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent || agent.role !== "agent") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Agent not found",
+      });
+    }
+
+    const trimmedName = args.name.trim().replace(/\s+/g, " ");
+    if (!trimmedName) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Please enter a valid name",
+      });
+    }
+
+    await ctx.db.patch(args.agentId, { name: trimmedName });
+    return { name: trimmedName };
+  },
+});
+
 /** List all agents with aggregated stats */
 export const listAgents = query({
   args: {},
@@ -161,7 +189,6 @@ export const listAgents = query({
           .filter((c) => c.status === "pending")
           .reduce((s, c) => s + c.amount, 0);
 
-        // Today
         const now = new Date();
         const todayStart = new Date(
           Date.UTC(
@@ -222,7 +249,6 @@ export const listCollections = query({
 
     const results = await baseQuery.paginate(args.paginationOpts);
 
-    // Enrich with names
     const enrichedPage = await Promise.all(
       results.page.map(async (c) => {
         const contributor = await ctx.db.get(c.contributorId);

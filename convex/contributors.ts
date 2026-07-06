@@ -1,3 +1,4 @@
+// convex/contributors.ts
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -56,7 +57,6 @@ export const add = mutation({
       });
     }
 
-    // Enforce phone uniqueness per agent
     const existingContributors = await ctx.db
       .query("contributors")
       .withIndex("by_agent", (q) => q.eq("agentId", user._id))
@@ -72,7 +72,6 @@ export const add = mutation({
       });
     }
 
-    // Validate frequency-specific fields
     if (args.frequency === "weekly" && args.weeklyDay === undefined) {
       throw new ConvexError({
         code: "BAD_REQUEST",
@@ -99,7 +98,6 @@ export const add = mutation({
       status: "active",
     });
 
-    // Send welcome email to contributor if they have an email
     if (args.email) {
       const freqLabel =
         args.frequency === "daily"
@@ -120,7 +118,6 @@ export const add = mutation({
       );
     }
 
-    // Send welcome SMS to contributor
     const smsFreqLabel =
       args.frequency === "daily"
         ? "Daily"
@@ -228,7 +225,6 @@ export const update = mutation({
     if (args.phone !== undefined) updates.phone = args.phone;
     if (args.dailyAmount !== undefined) updates.dailyAmount = args.dailyAmount;
 
-    // Handle frequency change
     if (args.frequency !== undefined) {
       updates.frequency = args.frequency;
       if (args.frequency === "weekly") {
@@ -359,13 +355,11 @@ export const claimAccount = mutation({
       });
     }
 
-    // Find contributor records matching this phone
     const matches = await ctx.db
       .query("contributors")
       .withIndex("by_phone", (q) => q.eq("phone", args.phone))
       .collect();
 
-    // Filter to only un-claimed records
     const unclaimed = matches.filter((c) => !c.userId);
     if (unclaimed.length === 0) {
       throw new ConvexError({
@@ -375,10 +369,8 @@ export const claimAccount = mutation({
       });
     }
 
-    // Take the first match (most common scenario: one contributor per phone)
     const contributor = unclaimed[0];
 
-    // Link both sides and backfill the contributor contact details from the signed-in user
     await ctx.db.patch(contributor._id, {
       userId: user._id,
       phone: args.phone,
@@ -418,7 +410,9 @@ export const getMyProfile = query({
     }
 
     const targetContributorId =
-      user.role === "agent" ? args.contributorId : user.contributorId;
+      user.role === "agent" || user.role === "admin"
+        ? args.contributorId
+        : user.contributorId;
 
     if (!targetContributorId) {
       return null;

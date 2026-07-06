@@ -1,3 +1,4 @@
+// convex/collections.ts
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -38,7 +39,7 @@ async function resolveContributorForDashboard(
     });
   }
 
-  if (user.role === "agent") {
+  if (user.role === "agent" || user.role === "admin") {
     if (!requestedContributorId) {
       throw new ConvexError({
         code: "BAD_REQUEST",
@@ -47,7 +48,14 @@ async function resolveContributorForDashboard(
     }
 
     const contributor = await ctx.db.get(requestedContributorId);
-    if (!contributor || contributor.agentId !== user._id) {
+    if (!contributor) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Contributor not found",
+      });
+    }
+
+    if (user.role === "agent" && contributor.agentId !== user._id) {
       throw new ConvexError({
         code: "FORBIDDEN",
         message: "Contributor not assigned to this agent",
@@ -112,7 +120,6 @@ export const record = mutation({
       });
     }
 
-    // Verify the contributor belongs to this agent
     const contributor = await ctx.db.get(args.contributorId);
     if (!contributor || contributor.agentId !== user._id) {
       throw new ConvexError({
@@ -121,7 +128,6 @@ export const record = mutation({
       });
     }
 
-    // Bank transfers should include a reference
     if (args.paymentMethod === "bank_transfer" && !args.bankReference) {
       throw new ConvexError({
         code: "BAD_REQUEST",
@@ -152,7 +158,6 @@ export const record = mutation({
     const contributionAmount = contributor.dailyAmount;
     const frequency = contributor.frequency ?? "daily";
 
-    // Send notification email to contributor if they have an email
     if (contributor.email) {
       await ctx.scheduler.runAfter(
         0,
@@ -171,7 +176,6 @@ export const record = mutation({
       );
     }
 
-    // Send SMS notification to contributor
     await ctx.scheduler.runAfter(0, internal.sms.sendCollectionSMS, {
       to: contributor.phone,
       contributorName: contributor.name,
@@ -218,7 +222,6 @@ export const listByAgent = query({
       .order("desc")
       .take(args.limit ?? 50);
 
-    // Enrich with contributor names
     return await Promise.all(
       collections.map(async (c) => {
         const contributor = await ctx.db.get(c.contributorId);
@@ -285,7 +288,6 @@ export const getTodaySummary = query({
       });
     }
 
-    // Get start of today in UTC
     const now = new Date();
     const todayStart = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
@@ -306,7 +308,6 @@ export const getTodaySummary = query({
       .filter((c) => c.paymentMethod === "bank_transfer")
       .reduce((sum, c) => sum + c.amount, 0);
 
-    // Get contributor counts
     const contributors = await ctx.db
       .query("contributors")
       .withIndex("by_agent", (q) => q.eq("agentId", user._id))
@@ -425,7 +426,6 @@ export const getMyCardSummary = query({
 
     const frequency = contributor.frequency ?? "daily";
 
-    // Get all collections for this contributor
     const allCollections = await ctx.db
       .query("collections")
       .withIndex("by_contributor", (q) => q.eq("contributorId", contributorId))
@@ -556,7 +556,6 @@ export const getMyCardSummary = query({
       };
     }
 
-    // Monthly frequency
     const monthAnchorDate = new Date(
       Date.UTC(
         cycleAnchorDate.getUTCFullYear(),

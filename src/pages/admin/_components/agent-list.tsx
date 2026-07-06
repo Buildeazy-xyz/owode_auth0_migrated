@@ -1,3 +1,4 @@
+// src/pages/admin/_components/agent-list.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { Input } from "@/components/ui/input.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import {
   Empty,
@@ -26,6 +28,7 @@ import {
   ChevronRight,
   ClipboardList,
   Mail,
+  Pencil,
   Phone,
   Users,
   Wallet,
@@ -148,7 +151,40 @@ export function AgentDetailPanel({
 }) {
   const detail = useQuery(api.admin.getAgentDetail, { agentId });
   const bulkConfirm = useMutation(api.admin.bulkConfirmByAgent);
+  const updateAgentName = useMutation(api.admin.updateAgentName);
   const [confirming, setConfirming] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const navigate = useNavigate();
+
+  const startEditingName = () => {
+    setNameDraft(detail?.agent.name ?? "");
+    setEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      toast.error("Please enter a valid name");
+      return;
+    }
+    setSavingName(true);
+    try {
+      await updateAgentName({ agentId, name: trimmed });
+      toast.success("Agent name updated");
+      setEditingName(false);
+    } catch (error) {
+      if (error instanceof ConvexError) {
+        const data = error.data as { message: string };
+        toast.error(data.message);
+      } else {
+        toast.error("Failed to update agent name");
+      }
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const handleBulkConfirm = async () => {
     setConfirming(true);
@@ -178,9 +214,41 @@ export function AgentDetailPanel({
             <ArrowLeft className="h-4 w-4" />
             Back to agents
           </Button>
-          <h3 className="text-xl font-bold font-serif">
-            {detail?.agent.name ?? "Agent Information Dashboard"}
-          </h3>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                className="h-8 max-w-xs"
+                autoFocus
+              />
+              <Button size="sm" onClick={handleSaveName} disabled={savingName}>
+                {savingName ? "Saving..." : "Save"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditingName(false)}
+                disabled={savingName}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <h3 className="flex items-center gap-2 text-xl font-bold font-serif">
+              {detail?.agent.name ?? "Agent Information Dashboard"}
+              {detail && (
+                <button
+                  type="button"
+                  onClick={startEditingName}
+                  className="text-muted-foreground hover:text-primary"
+                  aria-label="Edit agent name"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+            </h3>
+          )}
           <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Mail className="h-4 w-4" />
@@ -273,7 +341,17 @@ export function AgentDetailPanel({
                     {detail.contributors.map((contributor) => (
                       <div
                         key={contributor._id}
-                        className="flex items-center justify-between rounded-lg bg-muted/50 p-3 text-sm"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() =>
+                          navigate(`/agent/contributors/${contributor._id}`)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            navigate(`/agent/contributors/${contributor._id}`);
+                          }
+                        }}
+                        className="flex cursor-pointer items-center justify-between rounded-lg bg-muted/50 p-3 text-sm transition-colors hover:bg-muted"
                       >
                         <div className="min-w-0">
                           <p className="truncate font-medium">{contributor.name}</p>
@@ -293,6 +371,7 @@ export function AgentDetailPanel({
                           >
                             {contributor.status}
                           </Badge>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </div>
                     ))}

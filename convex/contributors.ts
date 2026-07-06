@@ -280,6 +280,61 @@ export const listByAgent = query({
   },
 });
 
+export const requestDeletion = mutation({
+  args: {
+    contributorId: v.id("contributors"),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique();
+    if (!user || user.role !== "agent") {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Only agents can request contributor deletion",
+      });
+    }
+
+    const contributor = await ctx.db.get(args.contributorId);
+    if (!contributor || contributor.agentId !== user._id) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Contributor not assigned to this agent",
+      });
+    }
+
+    const requestedAt = new Date().toISOString();
+    await ctx.db.insert("contributor_deletion_requests", {
+      contributorId: contributor._id,
+      agentId: user._id,
+      requestedAt,
+      reason: args.reason,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.emails.sendContributorDeletionRequestAdminEmail, {
+      contributorName: contributor.name,
+      contributorPhone: contributor.phone,
+      contributorEmail: contributor.email ?? undefined,
+      agentName: user.name ?? "OWODE Agent",
+      reason: args.reason ?? undefined,
+      requestedAt,
+    });
+
+    return { requestId: true };
+  },
+});
+
 /** Claim a contributor record by matching phone number */
 export const claimAccount = mutation({
   args: { phone: v.string() },

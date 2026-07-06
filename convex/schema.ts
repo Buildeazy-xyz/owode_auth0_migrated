@@ -140,4 +140,11 @@ export default defineSchema({
     .index("by_contributor_and_date", ["contributorId", "requestedAt"])
     .index("by_reference", ["referenceNumber"])
     .index("by_status", ["status"]),
+
+  contributor_deletion_requests: defineTable({
+    contributorId: v.id("contributors"),
+    agentId: v.id("users"),
+    requestedAt: v.string(),
+    reason: v.optional(v.string()),
+  }).index("by_agent", ["agentId"]),
 });

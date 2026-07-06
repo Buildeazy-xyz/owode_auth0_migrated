@@ -4,6 +4,7 @@ import { Buffer } from "node:buffer";
 import escapeHtml from "escape-html";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 const MAILGUN_API_BASE_URL =
@@ -16,6 +17,47 @@ const MAILGUN_SENDER_EMAIL =
   "OWODE <mailgun@mg.example.com>";
 const EMAIL_NOTIFICATIONS_PAUSED = false;
 const CONTRIBUTOR_ONBOARDING_EMAILS_PAUSED = true;
+const COMPANY_NOTIFICATION_EMAIL = "info@owodealajo.com";
+
+async function getAdminNotificationEmails(
+  ctx: Pick<QueryCtx | MutationCtx, "db">,
+): Promise<string[]> {
+  const users = await ctx.db.query("users").collect();
+  const emails = new Set<string>();
+
+  for (const user of users) {
+    if (
+      (user.role === "admin" || user.isSuperAdmin === true) &&
+      user.email &&
+      user.email.trim()
+    ) {
+      emails.add(user.email.trim());
+    }
+  }
+
+  emails.add(COMPANY_NOTIFICATION_EMAIL);
+  return Array.from(emails);
+}
+
+async function sendEmailToAddresses({
+  tos,
+  subject,
+  html,
+}: {
+  tos: string[];
+  subject: string;
+  html: string;
+}) {
+  await Promise.all(
+    tos.map(async (to) => {
+      try {
+        await sendEmail({ to, subject, html });
+      } catch (error) {
+        console.error("Failed to send email to", to, error);
+      }
+    }),
+  );
+}
 
 async function sendViaMailgun({
   to,
@@ -184,6 +226,69 @@ export const sendAgentApprovalEmail = internalAction({
   },
 });
 
+export const sendAgentPendingApprovalEmail = internalAction({
+  args: { to: v.string(), agentName: v.string() },
+  handler: async (_ctx, { to, agentName }) => {
+    try {
+      await sendEmail({
+        to,
+        subject: "Your OWODE Agent Application Is Pending Approval",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+            <h1 style="color: #166534;">Hello ${escapeHtml(agentName)},</h1>
+            <p>Your agent verification application has been received and is currently pending review by our admin team.</p>
+            <p>We will notify you by email once your application is approved or if we need more information.</p>
+            <br />
+            <p style="color: #6b7280; font-size: 14px;">— The OWODE Team</p>
+            <p style="color: #9ca3af; font-size: 12px;">Your Money is Safe.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error("Failed to send agent pending approval email:", error);
+    }
+  },
+});
+
+export const sendAgentPendingApprovalAdminEmail = internalAction({
+  args: {
+    agentEmail: v.string(),
+    agentName: v.string(),
+    phone: v.string(),
+    guarantorName: v.string(),
+    guarantorPhone: v.string(),
+    guarantorAddress: v.string(),
+    submittedAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tos = await getAdminNotificationEmails(ctx);
+    try {
+      await sendEmailToAddresses({
+        tos,
+        subject: `New OWODE Agent Verification Pending Approval — ${escapeHtml(args.agentName)}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto;">
+            <h1 style="color: #166534;">New agent verification is waiting for approval</h1>
+            <p>A new agent application has been submitted and is now pending approval.</p>
+            <table style="margin: 16px 0; border-collapse: collapse; width: 100%;">
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent name</td><td style="padding: 8px 0; font-weight: 600;">${escapeHtml(args.agentName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent email</td><td style="padding: 8px 0;">${escapeHtml(args.agentEmail)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent phone</td><td style="padding: 8px 0;">${escapeHtml(args.phone)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Guarantor name</td><td style="padding: 8px 0;">${escapeHtml(args.guarantorName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Guarantor phone</td><td style="padding: 8px 0;">${escapeHtml(args.guarantorPhone)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Guarantor address</td><td style="padding: 8px 0;">${escapeHtml(args.guarantorAddress)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Submitted at</td><td style="padding: 8px 0;">${escapeHtml(new Date(args.submittedAt).toLocaleString("en-NG"))}</td></tr>
+            </table>
+            <p style="color: #6b7280; font-size: 14px;">Review this application and approve or reject it from the admin dashboard.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error("Failed to send pending approval admin email:", error);
+    }
+  },
+});
+
 export const sendAdminAccessGrantedEmail = internalAction({
   args: { to: v.string(), name: v.string() },
   handler: async (_ctx, { to, name }) => {
@@ -341,7 +446,6 @@ export const sendCollectionNotificationEmail = internalAction({
 
 export const sendWithdrawalRequestAdminEmail = internalAction({
   args: {
-    to: v.string(),
     contributorName: v.string(),
     contributorPhone: v.string(),
     agentName: v.string(),
@@ -357,49 +461,31 @@ export const sendWithdrawalRequestAdminEmail = internalAction({
     penaltyFee: v.number(),
     payoutAmount: v.number(),
   },
-  handler: async (
-    _ctx,
-    {
-      to,
-      contributorName,
-      contributorPhone,
-      agentName,
-      amount,
-      bankName,
-      accountNumber,
-      accountName,
-      referenceNumber,
-      requestedAt,
-      note,
-      contributionDays,
-      contributionFee,
-      penaltyFee,
-      payoutAmount,
-    },
-  ) => {
+  handler: async (ctx, args) => {
+    const tos = await getAdminNotificationEmails(ctx);
     try {
-      await sendEmail({
-        to,
-        subject: `OWODE Withdrawal Request — ₦${amount.toLocaleString()}`,
+      await sendEmailToAddresses({
+        tos,
+        subject: `OWODE Withdrawal Request — ₦${args.amount.toLocaleString()}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto;">
             <h1 style="color: #166534;">New Withdrawal Request</h1>
             <p>An agent has submitted a contributor withdrawal request for manual processing.</p>
             <table style="margin: 16px 0; border-collapse: collapse; width: 100%;">
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor</td><td style="padding: 8px 0; font-weight: 600;">${escapeHtml(contributorName)}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor phone</td><td style="padding: 8px 0;">${escapeHtml(contributorPhone)}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent</td><td style="padding: 8px 0;">${escapeHtml(agentName)}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Requested amount</td><td style="padding: 8px 0; font-weight: 600;">₦${amount.toLocaleString()}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contribution count</td><td style="padding: 8px 0;">${contributionDays} day(s)</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contribution fee</td><td style="padding: 8px 0;">₦${contributionFee.toLocaleString()}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Penalty fee</td><td style="padding: 8px 0;">₦${penaltyFee.toLocaleString()}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Pay out to contributor</td><td style="padding: 8px 0; font-weight: 600; color: #166534;">₦${payoutAmount.toLocaleString()}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Bank</td><td style="padding: 8px 0;">${escapeHtml(bankName)}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account name</td><td style="padding: 8px 0;">${escapeHtml(accountName)}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account number</td><td style="padding: 8px 0;">${escapeHtml(accountNumber)}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Reference</td><td style="padding: 8px 0;">${escapeHtml(referenceNumber)}</td></tr>
-              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Requested at</td><td style="padding: 8px 0;">${escapeHtml(new Date(requestedAt).toLocaleString("en-NG"))}</td></tr>
-              ${note ? `<tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Note</td><td style="padding: 8px 0;">${escapeHtml(note)}</td></tr>` : ""}
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor</td><td style="padding: 8px 0; font-weight: 600;">${escapeHtml(args.contributorName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor phone</td><td style="padding: 8px 0;">${escapeHtml(args.contributorPhone)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent</td><td style="padding: 8px 0;">${escapeHtml(args.agentName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Requested amount</td><td style="padding: 8px 0; font-weight: 600;">₦${args.amount.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contribution count</td><td style="padding: 8px 0;">${args.contributionDays} day(s)</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contribution fee</td><td style="padding: 8px 0;">₦${args.contributionFee.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Penalty fee</td><td style="padding: 8px 0;">₦${args.penaltyFee.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Pay out to contributor</td><td style="padding: 8px 0; font-weight: 600; color: #166534;">₦${args.payoutAmount.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Bank</td><td style="padding: 8px 0;">${escapeHtml(args.bankName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account name</td><td style="padding: 8px 0;">${escapeHtml(args.accountName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account number</td><td style="padding: 8px 0;">${escapeHtml(args.accountNumber)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Reference</td><td style="padding: 8px 0;">${escapeHtml(args.referenceNumber)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Requested at</td><td style="padding: 8px 0;">${escapeHtml(new Date(args.requestedAt).toLocaleString("en-NG"))}</td></tr>
+              ${args.note ? `<tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Note</td><td style="padding: 8px 0;">${escapeHtml(args.note)}</td></tr>` : ""}
             </table>
             <p style="color: #6b7280; font-size: 14px;">Please process this withdrawal and update the contributor accordingly.</p>
           </div>
@@ -407,6 +493,43 @@ export const sendWithdrawalRequestAdminEmail = internalAction({
       });
     } catch (error) {
       console.error("Failed to send withdrawal request admin email:", error);
+    }
+  },
+});
+
+export const sendContributorDeletionRequestAdminEmail = internalAction({
+  args: {
+    contributorName: v.string(),
+    contributorPhone: v.string(),
+    contributorEmail: v.optional(v.string()),
+    agentName: v.string(),
+    reason: v.optional(v.string()),
+    requestedAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tos = await getAdminNotificationEmails(ctx);
+    try {
+      await sendEmailToAddresses({
+        tos,
+        subject: `Contributor Deletion Request — ${escapeHtml(args.contributorName)}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto;">
+            <h1 style="color: #991b1b;">Contributor Deletion Request</h1>
+            <p>An agent has requested deletion of a contributor. Review the request in the admin dashboard.</p>
+            <table style="margin: 16px 0; border-collapse: collapse; width: 100%;">
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor</td><td style="padding: 8px 0; font-weight: 600;">${escapeHtml(args.contributorName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor phone</td><td style="padding: 8px 0;">${escapeHtml(args.contributorPhone)}</td></tr>
+              ${args.contributorEmail ? `<tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor email</td><td style="padding: 8px 0;">${escapeHtml(args.contributorEmail)}</td></tr>` : ""}
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent</td><td style="padding: 8px 0;">${escapeHtml(args.agentName)}</td></tr>
+              ${args.reason ? `<tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Reason</td><td style="padding: 8px 0;">${escapeHtml(args.reason)}</td></tr>` : ""}
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Requested at</td><td style="padding: 8px 0;">${escapeHtml(new Date(args.requestedAt).toLocaleString("en-NG"))}</td></tr>
+            </table>
+            <p style="color: #6b7280; font-size: 14px;">Please review and take action from the admin dashboard.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error("Failed to send contributor deletion request admin email:", error);
     }
   },
 });

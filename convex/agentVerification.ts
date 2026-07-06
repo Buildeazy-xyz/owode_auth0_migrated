@@ -127,6 +127,23 @@ export const submit = mutation({
       submittedAt: new Date().toISOString(),
     });
 
+    if (user.email) {
+      await ctx.scheduler.runAfter(0, internal.emails.sendAgentPendingApprovalEmail, {
+        to: user.email,
+        agentName: user.name ?? "Agent",
+      });
+    }
+
+    await ctx.scheduler.runAfter(0, internal.emails.sendAgentPendingApprovalAdminEmail, {
+      agentEmail: user.email ?? "",
+      agentName: user.name ?? "Agent",
+      phone: args.phone,
+      guarantorName: args.guarantorName,
+      guarantorPhone: args.guarantorPhone,
+      guarantorAddress: args.guarantorAddress,
+      submittedAt: new Date().toISOString(),
+    });
+
     return verificationId;
   },
 });

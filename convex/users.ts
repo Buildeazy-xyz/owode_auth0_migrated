@@ -258,10 +258,19 @@ export const setAgentDisplayName = mutation({
       )
       .unique();
 
-    if (!user || user.role !== "agent") {
+    if (!user) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+
+    // Only admins may edit agent display names. Agents cannot change their
+    // own display name — admins must perform name updates.
+    if (user.role === "agent") {
       throw new ConvexError({
         code: "FORBIDDEN",
-        message: "Only agents can set their dashboard name",
+        message: "Only admins can set or change agent display names",
       });
     }
 
@@ -270,13 +279,6 @@ export const setAgentDisplayName = mutation({
       throw new ConvexError({
         code: "BAD_REQUEST",
         message: "Please enter your full name",
-      });
-    }
-
-    if (user.name?.trim()) {
-      throw new ConvexError({
-        code: "FORBIDDEN",
-        message: "Your agent name has already been saved and cannot be changed",
       });
     }
 

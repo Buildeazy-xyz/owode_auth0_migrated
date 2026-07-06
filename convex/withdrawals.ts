@@ -278,7 +278,6 @@ export const requestWithdrawal = mutation({
     });
 
     await ctx.scheduler.runAfter(0, internal.emails.sendWithdrawalRequestAdminEmail, {
-      to: ADMIN_WITHDRAWAL_EMAIL,
       contributorName: contributor.name,
       contributorPhone: contributor.phone,
       agentName: user.name ?? "OWODE Agent",

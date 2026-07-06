@@ -52,6 +52,7 @@ import {
   ArrowRightLeft,
   ChevronRight,
   Search,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvexError } from "convex/values";
@@ -195,6 +196,7 @@ function ContributorRow({
   onRequestWithdrawal: () => void;
 }) {
   const toggleStatus = useMutation(api.contributors.toggleStatus);
+  const requestDeletion = useMutation(api.contributors.requestDeletion);
   const navigate = useNavigate();
   const [toggling, setToggling] = useState(false);
   const freq: Frequency = (contributor.frequency as Frequency) ?? "daily";
@@ -233,7 +235,7 @@ function ContributorRow({
       <button
         type="button"
         onClick={() => navigate(`/agent/contributors/${contributor._id}`)}
-        className="min-w-0 text-left group"
+        className="min-w-0 text-left group w-full"
       >
         <div className="flex items-center gap-2">
           <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
@@ -272,6 +274,17 @@ function ContributorRow({
             <DropdownMenuItem onClick={onEdit}>
               <Pencil className="w-4 h-4 mr-2" />
               Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={async () => {
+              try {
+                await requestDeletion({ contributorId: contributor._id });
+                toast.success("Deletion request sent to admins");
+              } catch (e) {
+                toast.error("Failed to request deletion");
+              }
+            }}>
+              <XCircle className="w-4 h-4 mr-2" />
+              Request delete
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onRequestWithdrawal}>
               <ArrowRightLeft className="w-4 h-4 mr-2" />

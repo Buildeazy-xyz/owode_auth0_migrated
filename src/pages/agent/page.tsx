@@ -318,7 +318,7 @@ function AgentRegistrationCard({
         </div>
 
         {verification.govIdUrl && (
-          
+          <a
             href={verification.govIdUrl}
             target="_blank"
             rel="noreferrer"

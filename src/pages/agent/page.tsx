@@ -1,4 +1,3 @@
-// src/pages/agent/page.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
@@ -105,16 +104,13 @@ type AgentVerificationDetails = {
   userEmail?: string;
 };
 
-const STATUS_CONFIG: Record
-  string,
-  {
-    icon: typeof Clock;
-    title: string;
-    description: string;
-    color: string;
-    badgeClass: string;
-  }
-> = {
+const STATUS_CONFIG: Record<string, {
+  icon: typeof Clock;
+  title: string;
+  description: string;
+  color: string;
+  badgeClass: string;
+}> = {
   pending: {
     icon: Clock,
     title: "Application Submitted",

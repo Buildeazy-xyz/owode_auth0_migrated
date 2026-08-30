@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 const ADMIN_WITHDRAWAL_EMAIL = "aminatiyiola7@gmail.com";
@@ -559,5 +559,35 @@ export const confirmReceipt = mutation({
       receiptNote: args.note?.trim() || undefined,
     });
     return { receiptStatus: args.received ? "received" : "not_received" };
+  },
+});
+
+
+/**
+ * Any withdrawal the contributor has not confirmed within five hours
+ * is escalated so admins can follow it up.
+ */
+export const escalateUnconfirmed = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+    const cutoff = Date.now() - FIVE_HOURS_MS;
+
+    const requests = await ctx.db
+      .query('withdrawal_requests')
+      .withIndex('by_status', (q) => q.eq('status', 'paid'))
+      .collect();
+
+    let escalated = 0;
+    for (const r of requests) {
+      if (r.receiptStatus !== 'awaiting') continue;
+      if (!r.receiptAskedAt) continue;
+      if (new Date(r.receiptAskedAt).getTime() > cutoff) continue;
+
+      await ctx.db.patch(r._id, { receiptStatus: 'escalated' });
+      escalated += 1;
+    }
+
+    return { escalated };
   },
 });

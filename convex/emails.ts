@@ -533,3 +533,44 @@ export const sendContributorDeletionRequestAdminEmail = internalAction({
     }
   },
 });
+
+export const sendUnconfirmedWithdrawalAdminEmail = internalAction({
+  args: {
+    contributorName: v.string(),
+    contributorPhone: v.string(),
+    agentName: v.string(),
+    amount: v.number(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    referenceNumber: v.string(),
+    paidAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tos = await getAdminNotificationEmails(ctx);
+    try {
+      await sendEmailToAddresses({
+        tos,
+        subject: `OWODE - Withdrawal not confirmed by contributor - ₦${args.amount.toLocaleString()}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto;">
+            <h1 style="color: #b45309;">Withdrawal not yet confirmed</h1>
+            <p>This withdrawal was marked as paid more than five hours ago, but the contributor has not confirmed receiving the money.</p>
+            <table style="margin: 16px 0; border-collapse: collapse; width: 100%;">
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Contributor</td><td style="padding: 8px 0; font-weight: 600;">${escapeHtml(args.contributorName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Phone</td><td style="padding: 8px 0;">${escapeHtml(args.contributorPhone)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Agent</td><td style="padding: 8px 0;">${escapeHtml(args.agentName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Amount</td><td style="padding: 8px 0; font-weight: 600;">₦${args.amount.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Bank</td><td style="padding: 8px 0;">${escapeHtml(args.bankName)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Account number</td><td style="padding: 8px 0;">${escapeHtml(args.accountNumber)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Reference</td><td style="padding: 8px 0;">${escapeHtml(args.referenceNumber)}</td></tr>
+              <tr><td style="padding: 8px 12px 8px 0; color: #6b7280;">Marked paid at</td><td style="padding: 8px 0;">${escapeHtml(new Date(args.paidAt).toLocaleString("en-NG"))}</td></tr>
+            </table>
+            <p style="color: #b45309; font-size: 14px;">Please contact the contributor to confirm whether the money arrived.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error("Failed to send unconfirmed withdrawal admin email:", error);
+    }
+  },
+});

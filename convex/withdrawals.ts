@@ -586,6 +586,23 @@ export const escalateUnconfirmed = internalMutation({
 
       await ctx.db.patch(r._id, { receiptStatus: 'escalated' });
       escalated += 1;
+
+      const contributor = await ctx.db.get(r.contributorId);
+      const agent = await ctx.db.get(r.agentId);
+      await ctx.scheduler.runAfter(
+        0,
+        internal.emails.sendUnconfirmedWithdrawalAdminEmail,
+        {
+          contributorName: contributor?.name ?? 'Unknown',
+          contributorPhone: contributor?.phone ?? '',
+          agentName: agent?.name ?? 'Unknown agent',
+          amount: r.payoutAmount ?? r.amount,
+          bankName: r.bankName,
+          accountNumber: r.accountNumber,
+          referenceNumber: r.referenceNumber,
+          paidAt: r.reviewedAt ?? r.receiptAskedAt ?? '',
+        },
+      );
     }
 
     return { escalated };

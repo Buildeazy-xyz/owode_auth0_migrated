@@ -20,7 +20,7 @@ const CONTRIBUTOR_ONBOARDING_EMAILS_PAUSED = true;
 const COMPANY_NOTIFICATION_EMAIL = "info@owodealajo.com";
 
 async function getAdminNotificationEmails(
-  ctx: Pick<QueryCtx | MutationCtx, "db">,
+  ctx: any,
 ): Promise<string[]> {
   const users = await ctx.db.query("users").collect();
   const emails = new Set<string>();

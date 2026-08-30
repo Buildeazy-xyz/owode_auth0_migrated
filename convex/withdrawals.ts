@@ -452,6 +452,35 @@ export const reviewRequest = mutation({
       }
     }
 
+    // Withdrawals above this amount need two different admins to approve.
+    const DUAL_APPROVAL_THRESHOLD = 100000;
+
+    if (args.action === "paid" && request.amount >= DUAL_APPROVAL_THRESHOLD) {
+      if (!request.firstApprovedBy) {
+        // First admin approves. Hold it until a second admin agrees.
+        await ctx.db.patch(args.requestId, {
+          status: "processing",
+          firstApprovedBy: admin._id,
+          firstApprovedAt: new Date().toISOString(),
+          reviewNote: args.note?.trim() || undefined,
+        });
+        return {
+          status: "processing",
+          payoutAmount: request.payoutAmount ?? request.amount,
+          deductedFromCompanyTotal: false,
+          awaitingSecondApproval: true,
+        };
+      }
+
+      if (request.firstApprovedBy === admin._id) {
+        throw new ConvexError({
+          code: "BAD_REQUEST",
+          message:
+            "You have already approved this withdrawal. A different admin must give the second approval.",
+        });
+      }
+    }
+
     await ctx.db.patch(args.requestId, {
       status: args.action,
       reviewedBy: admin._id,

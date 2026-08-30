@@ -135,6 +135,9 @@ export default defineSchema({
     reviewedBy: v.optional(v.id("users")),
     reviewedAt: v.optional(v.string()),
     reviewNote: v.optional(v.string()),
+    /** Large withdrawals need a second admin. Records the first approval. */
+    firstApprovedBy: v.optional(v.id("users")),
+    firstApprovedAt: v.optional(v.string()),
   })
     .index("by_agent_and_date", ["agentId", "requestedAt"])
     .index("by_contributor_and_date", ["contributorId", "requestedAt"])

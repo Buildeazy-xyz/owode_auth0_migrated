@@ -481,11 +481,17 @@ export const reviewRequest = mutation({
       }
     }
 
+    const now = new Date().toISOString();
+
     await ctx.db.patch(args.requestId, {
       status: args.action,
       reviewedBy: admin._id,
-      reviewedAt: new Date().toISOString(),
+      reviewedAt: now,
       reviewNote: args.note?.trim() || undefined,
+      // Once money has gone out, ask the contributor to confirm they got it.
+      ...(args.action === "paid"
+        ? { receiptStatus: "awaiting" as const, receiptAskedAt: now }
+        : {}),
     });
 
     return {
@@ -493,5 +499,65 @@ export const reviewRequest = mutation({
       payoutAmount: request.payoutAmount ?? request.amount,
       deductedFromCompanyTotal: args.action === "paid",
     };
+  },
+});
+
+
+/** Withdrawals waiting for this contributor to confirm receipt. */
+export const myPendingReceipts = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.subject))
+      .unique();
+    if (!user?.contributorId) return [];
+    const requests = await ctx.db
+      .query("withdrawal_requests")
+      .withIndex("by_contributor_and_date", (q) =>
+        q.eq("contributorId", user.contributorId!),
+      )
+      .collect();
+    return requests.filter(
+      (r) => r.receiptStatus === "awaiting" || r.receiptStatus === "escalated",
+    );
+  },
+});
+
+/** Contributor confirms whether the money actually arrived. */
+export const confirmReceipt = mutation({
+  args: {
+    requestId: v.id("withdrawal_requests"),
+    received: v.boolean(),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "Please sign in" });
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.subject))
+      .unique();
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Withdrawal not found" });
+    }
+    // Only the contributor the money belongs to may confirm it.
+    if (!user?.contributorId || user.contributorId !== request.contributorId) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "You cannot confirm someone else's withdrawal",
+      });
+    }
+    await ctx.db.patch(args.requestId, {
+      receiptStatus: args.received ? "received" : "not_received",
+      receiptRespondedAt: new Date().toISOString(),
+      receiptNote: args.note?.trim() || undefined,
+    });
+    return { receiptStatus: args.received ? "received" : "not_received" };
   },
 });

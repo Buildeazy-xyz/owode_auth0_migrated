@@ -138,6 +138,18 @@ export default defineSchema({
     /** Large withdrawals need a second admin. Records the first approval. */
     firstApprovedBy: v.optional(v.id("users")),
     firstApprovedAt: v.optional(v.string()),
+    /** The contributor confirms they actually received the money. */
+    receiptStatus: v.optional(
+      v.union(
+        v.literal("awaiting"),
+        v.literal("received"),
+        v.literal("not_received"),
+        v.literal("escalated"),
+      ),
+    ),
+    receiptAskedAt: v.optional(v.string()),
+    receiptRespondedAt: v.optional(v.string()),
+    receiptNote: v.optional(v.string()),
   })
     .index("by_agent_and_date", ["agentId", "requestedAt"])
     .index("by_contributor_and_date", ["contributorId", "requestedAt"])

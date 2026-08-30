@@ -7,6 +7,7 @@ import VirtualCard from "./_components/virtual-card.tsx";
 import ContributorStats from "./_components/contributor-stats.tsx";
 import PaymentHistory from "./_components/payment-history.tsx";
 import AgentInfo from "./_components/agent-info.tsx";
+import ReceiptConfirm from "./_components/receipt-confirm.tsx";
 
 export default function ContributorDashboard() {
   const user = useQuery(api.users.getCurrentUser);
@@ -46,6 +47,9 @@ export default function ContributorDashboard() {
           Your digital thrift card
         </p>
       </div>
+
+      {/* Awaiting confirmation that a withdrawal arrived */}
+      <ReceiptConfirm />
 
       {/* Virtual thrift card */}
       {cardSummary && (

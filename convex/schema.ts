@@ -82,9 +82,14 @@ export default defineSchema({
     startDate: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("inactive")),
     userId: v.optional(v.id("users")),
+    /** One-time token so a contributor can claim their account from an SMS link. */
+    inviteToken: v.optional(v.string()),
+    inviteCreatedAt: v.optional(v.string()),
+    inviteUsedAt: v.optional(v.string()),
   })
     .index("by_agent", ["agentId"])
-    .index("by_phone", ["phone"]),
+    .index("by_phone", ["phone"])
+    .index("by_invite_token", ["inviteToken"]),
 
   collections: defineTable({
     contributorId: v.id("contributors"),

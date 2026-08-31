@@ -85,6 +85,10 @@ export const add = mutation({
       });
     }
 
+    // A one-time token so the contributor can claim their account from a link,
+    // rather than hunting for the site and typing their phone number.
+    const inviteToken = `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+
     const contributorId = await ctx.db.insert("contributors", {
       name: args.name,
       phone: args.phone,
@@ -96,6 +100,8 @@ export const add = mutation({
       monthlyDay: args.frequency === "monthly" ? args.monthlyDay : undefined,
       startDate: args.startDate ?? new Date().toISOString(),
       status: "active",
+      inviteToken,
+      inviteCreatedAt: new Date().toISOString(),
     });
 
     if (args.email) {
@@ -130,6 +136,7 @@ export const add = mutation({
       agentName: user.name ?? "Your Agent",
       frequency: smsFreqLabel,
       amount: args.dailyAmount,
+      inviteToken,
     });
 
     return contributorId;
@@ -435,5 +442,68 @@ export const getMyProfile = query({
       agentName: agent?.name ?? "Unknown",
       agentPhone: agent?.phone ?? "",
     };
+  },
+});
+
+/**
+ * Claim a contributor record using the token from the invite link.
+ * This replaces making people type the phone number their agent used.
+ */
+export const claimByToken = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: 'UNAUTHORIZED',
+        message: 'Please sign in first',
+      });
+    }
+
+    const contributor = await ctx.db
+      .query('contributors')
+      .withIndex('by_invite_token', (q) => q.eq('inviteToken', args.token))
+      .unique();
+
+    if (!contributor) {
+      throw new ConvexError({
+        code: 'NOT_FOUND',
+        message: 'This invite link is not valid. Please ask your agent for a new one.',
+      });
+    }
+
+    if (contributor.userId) {
+      throw new ConvexError({
+        code: 'BAD_REQUEST',
+        message: 'This account has already been claimed.',
+      });
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_token', (q) => q.eq('tokenIdentifier', identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new ConvexError({
+        code: 'NOT_FOUND',
+        message: 'Account not found. Please sign in again.',
+      });
+    }
+
+    await ctx.db.patch(contributor._id, {
+      userId: user._id,
+      inviteUsedAt: new Date().toISOString(),
+      inviteToken: undefined,
+    });
+
+    await ctx.db.patch(user._id, {
+      role: 'contributor',
+      contributorId: contributor._id,
+      isVerified: true,
+      verifiedAt: new Date().toISOString(),
+    });
+
+    return { name: contributor.name };
   },
 });

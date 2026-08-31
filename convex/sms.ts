@@ -66,7 +66,7 @@ function getFromNumber(): string {
 }
 
 const SMS_NOTIFICATIONS_PAUSED = false;
-const CONTRIBUTOR_ONBOARDING_SMS_PAUSED = true;
+const CONTRIBUTOR_ONBOARDING_SMS_PAUSED = false;
 
 function shouldSkipSms(to: string) {
   if (!SMS_NOTIFICATIONS_PAUSED) {
@@ -152,8 +152,9 @@ export const sendContributorWelcomeSMS = internalAction({
     agentName: v.string(),
     frequency: v.string(),
     amount: v.number(),
+    inviteToken: v.optional(v.string()),
   },
-  handler: async (_ctx, { to, contributorName, agentName, frequency, amount }) => {
+  handler: async (_ctx, { to, contributorName, agentName, frequency, amount, inviteToken }) => {
     if (shouldSkipSms(to)) {
       return;
     }
@@ -167,7 +168,9 @@ export const sendContributorWelcomeSMS = internalAction({
     }
 
     try {
-      const messageId = await sendTermiiSms(to, `Welcome to OWODE, ${contributorName}! Agent ${agentName} has added you. ${frequency} contribution: \u20A6${amount.toLocaleString()}. Visit our app to view your virtual card. — OWODE`);
+      const base = process.env.SITE_URL ?? 'https://owodealajo.com';
+      const link = inviteToken ? ` Set up your account: ${base}/join/${inviteToken}` : '';
+      const messageId = await sendTermiiSms(to, `Welcome to OWODE, ${contributorName}! Agent ${agentName} has added you. ${frequency} contribution: \u20A6${amount.toLocaleString()}.${link} — OWODE`);
       console.info("Contributor welcome SMS sent:", { to, id: messageId });
     } catch (error) {
       console.error("Failed to send contributor welcome SMS:", error);

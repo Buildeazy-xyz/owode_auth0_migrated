@@ -36,12 +36,9 @@ export default function GetStartedPage() {
               <p className="text-sm text-muted-foreground">
                 I save with an agent and want to see my card and balance.
               </p>
-              <SignInButton
-                className="w-full"
-                signInText="Continue as Contributor"
-                showIcon={false}
-                onClick={() => remember('contributor')}
-              />
+              <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+                Your agent will send you a link by SMS. Open it to set up your account.
+              </div>
             </CardContent>
           </Card>
 

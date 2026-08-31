@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AppLayout from "./components/AppLayout.tsx";
 import OnboardingPage from "./pages/onboarding/page.tsx";
+import GetStartedPage from "./pages/get-started/page.tsx";
 import AgentDashboard from "./pages/agent/page.tsx";
 import AgentContributorDetailPage from "./pages/agent/contributor-detail-page.tsx";
 import ContributorDashboard from "./pages/contributor/page.tsx";
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/verify-account" element={<VerifyAccountPage />} />
+          <Route path="/get-started" element={<GetStartedPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           {/* Protected routes with shared layout */}
           <Route element={<AppLayout />}>

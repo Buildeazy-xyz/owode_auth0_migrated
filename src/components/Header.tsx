@@ -133,12 +133,9 @@ export default function Header() {
             </AuthLoading>
             <Unauthenticated>
               <SignInButton variant="ghost" size="sm" />
-              <SignInButton
-                size="sm"
-                signInText="Sign Up"
-                showIcon={false}
-                authMode="signup"
-              />
+              <Button size="sm" asChild>
+                <Link to="/get-started">Get Started</Link>
+              </Button>
             </Unauthenticated>
             <Authenticated>
               <DashboardLink />

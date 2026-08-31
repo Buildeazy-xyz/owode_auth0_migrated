@@ -47,7 +47,17 @@ function OnboardingContent() {
   );
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<Step>("choose");
+  // If they already told us who they are before signing in, skip the question.
+  const [step, setStep] = useState<Step>(() => {
+    try {
+      const saved = localStorage.getItem("owode_intended_role");
+      if (saved === "agent") return "agent-details";
+      if (saved === "contributor") return "contributor-phone";
+    } catch {
+      // ignore
+    }
+    return "choose";
+  });
   const [loading, setLoading] = useState(false);
 
   // Contributor claim

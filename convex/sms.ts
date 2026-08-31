@@ -1,17 +1,7 @@
 "use node";
 
-import twilio from "twilio";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
-
-function getTwilioClient() {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) {
-    throw new Error("Twilio credentials not configured");
-  }
-  return twilio(sid, token);
-}
 
 function normalizePhoneNumber(value: string, label: string): string {
   const normalized = value.replace(/[\s()-]/g, "");
@@ -28,6 +18,40 @@ function normalizePhoneNumber(value: string, label: string): string {
     return `+234${normalized.slice(1)}`;
   }
   return normalized;
+}
+
+/**
+ * Send an SMS through Termii.
+ * Kept deliberately small so every call site below stays unchanged.
+ */
+async function sendTermiiSms(to: string, body: string) {
+  const apiKey = process.env.TERMII_API_KEY;
+  if (!apiKey) {
+    throw new Error('TERMII_API_KEY is not configured');
+  }
+  const senderId = process.env.TERMII_SENDER_ID ?? 'OWODE';
+
+  // Termii expects the number without a leading plus.
+  const recipient = normalizePhoneNumber(to, 'Recipient phone number').replace(/^\+/, '');
+
+  const response = await fetch('https://v4.api.termii.com/api/sms/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: recipient,
+      from: senderId,
+      sms: body,
+      type: 'plain',
+      channel: 'dnd',
+      api_key: apiKey,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({} as any));
+  if (!response.ok) {
+    throw new Error(`Termii rejected the message: ${JSON.stringify(data)}`);
+  }
+  return data?.message_id ?? 'sent';
 }
 
 function getFromNumber(): string {
@@ -62,13 +86,8 @@ export const sendAccountVerificationSMS = internalAction({
     }
 
     try {
-      const client = getTwilioClient();
-      const message = await client.messages.create({
-        body: `Hello ${name}, your OWODE verification code is ${code}. It expires in 10 minutes. — OWODE`,
-        from: getFromNumber(),
-        to: normalizePhoneNumber(to, "Recipient phone number"),
-      });
-      console.info("Account verification SMS sent:", { to, sid: message.sid });
+      const messageId = await sendTermiiSms(to, `Hello ${name}, your OWODE verification code is ${code}. It expires in 10 minutes. — OWODE`);
+      console.info("Account verification SMS sent:", { to, id: messageId });
     } catch (error) {
       console.error("Failed to send account verification SMS:", error);
     }
@@ -84,13 +103,8 @@ export const sendAgentApprovalSMS = internalAction({
     }
 
     try {
-      const client = getTwilioClient();
-      const message = await client.messages.create({
-        body: `Congratulations ${agentName}! Your OWODE agent account has been approved. Log in to start adding contributors and recording collections. — OWODE`,
-        from: getFromNumber(),
-        to: normalizePhoneNumber(to, "Recipient phone number"),
-      });
-      console.info("Agent approval SMS sent:", { to, sid: message.sid });
+      const messageId = await sendTermiiSms(to, `Congratulations ${agentName}! Your OWODE agent account has been approved. Log in to start adding contributors and recording collections. — OWODE`);
+      console.info("Agent approval SMS sent:", { to, id: messageId });
     } catch (error) {
       console.error("Failed to send agent approval SMS:", error);
     }
@@ -105,13 +119,8 @@ export const sendAdminAccessGrantedSMS = internalAction({
     }
 
     try {
-      const client = getTwilioClient();
-      const message = await client.messages.create({
-        body: `Hello ${name}, your OWODE admin access is now active. Sign in with your email to manage the dashboard. — OWODE`,
-        from: getFromNumber(),
-        to: normalizePhoneNumber(to, "Recipient phone number"),
-      });
-      console.info("Admin access SMS sent:", { to, sid: message.sid });
+      const messageId = await sendTermiiSms(to, `Hello ${name}, your OWODE admin access is now active. Sign in with your email to manage the dashboard. — OWODE`);
+      console.info("Admin access SMS sent:", { to, id: messageId });
     } catch (error) {
       console.error("Failed to send admin access SMS:", error);
     }
@@ -127,13 +136,8 @@ export const sendAgentRejectionSMS = internalAction({
     }
 
     try {
-      const client = getTwilioClient();
-      const message = await client.messages.create({
-        body: `Hello ${agentName}, your OWODE agent verification was not approved yet. Reason: ${reason}. Please update your details and submit again. — OWODE`,
-        from: getFromNumber(),
-        to: normalizePhoneNumber(to, "Recipient phone number"),
-      });
-      console.info("Agent rejection SMS sent:", { to, sid: message.sid });
+      const messageId = await sendTermiiSms(to, `Hello ${agentName}, your OWODE agent verification was not approved yet. Reason: ${reason}. Please update your details and submit again. — OWODE`);
+      console.info("Agent rejection SMS sent:", { to, id: messageId });
     } catch (error) {
       console.error("Failed to send agent rejection SMS:", error);
     }
@@ -163,13 +167,8 @@ export const sendContributorWelcomeSMS = internalAction({
     }
 
     try {
-      const client = getTwilioClient();
-      const message = await client.messages.create({
-        body: `Welcome to OWODE, ${contributorName}! Agent ${agentName} has added you. ${frequency} contribution: \u20A6${amount.toLocaleString()}. Visit our app to view your virtual card. — OWODE`,
-        from: getFromNumber(),
-        to: normalizePhoneNumber(to, "Recipient phone number"),
-      });
-      console.info("Contributor welcome SMS sent:", { to, sid: message.sid });
+      const messageId = await sendTermiiSms(to, `Welcome to OWODE, ${contributorName}! Agent ${agentName} has added you. ${frequency} contribution: \u20A6${amount.toLocaleString()}. Visit our app to view your virtual card. — OWODE`);
+      console.info("Contributor welcome SMS sent:", { to, id: messageId });
     } catch (error) {
       console.error("Failed to send contributor welcome SMS:", error);
     }
@@ -197,15 +196,13 @@ export const sendCollectionSMS = internalAction({
     }
 
     try {
-      const client = getTwilioClient();
       const method = paymentMethod === "bank_transfer" ? "Bank Transfer" : "Cash";
       const period = frequency === "weekly" ? "week" : frequency === "monthly" ? "month" : "day";
-      const message = await client.messages.create({
-        body: `Hi ${contributorName}, your OWODE contribution of \u20A6${amount.toLocaleString()} (${method}) has been recorded. Current contribution: \u20A6${contributionAmount.toLocaleString()}/${period}. Total saved: \u20A6${totalSaved.toLocaleString()}. Ref: ${referenceNumber}. — OWODE`,
-        from: getFromNumber(),
-        to: normalizePhoneNumber(to, "Recipient phone number"),
-      });
-      console.info("Collection SMS sent:", { to, sid: message.sid });
+      const messageId = await sendTermiiSms(
+        to,
+        `Hi ${contributorName}, your OWODE contribution of \u20A6${amount.toLocaleString()} (${method}) has been recorded. Current contribution: \u20A6${contributionAmount.toLocaleString()}/${period}. Total saved: \u20A6${totalSaved.toLocaleString()}. Ref: ${referenceNumber}. — OWODE`,
+      );
+      console.info("Collection SMS sent:", { to, id: messageId });
     } catch (error) {
       console.error("Failed to send collection SMS:", error);
     }
@@ -251,13 +248,8 @@ export const sendWithdrawalRequestAdminSMS = internalAction({
     }
 
     try {
-      const client = getTwilioClient();
-      const message = await client.messages.create({
-        body: `OWODE withdrawal: ${contributorName} (${contributorPhone}) via ${agentName}. Req: \u20A6${amount.toLocaleString()}, days: ${contributionDays}, fees: \u20A6${(contributionFee + penaltyFee).toLocaleString()}, pay: \u20A6${payoutAmount.toLocaleString()}. ${bankName} ${accountName} ${accountNumber}. Ref: ${referenceNumber}.`,
-        from: getFromNumber(),
-        to: normalizePhoneNumber(to, "Recipient phone number"),
-      });
-      console.info("Withdrawal request admin SMS sent:", { to, sid: message.sid });
+      const messageId = await sendTermiiSms(to, `OWODE withdrawal: ${contributorName} (${contributorPhone}) via ${agentName}. Req: \u20A6${amount.toLocaleString()}, days: ${contributionDays}, fees: \u20A6${(contributionFee + penaltyFee).toLocaleString()}, pay: \u20A6${payoutAmount.toLocaleString()}. ${bankName} ${accountName} ${accountNumber}. Ref: ${referenceNumber}.`);
+      console.info("Withdrawal request admin SMS sent:", { to, id: messageId });
     } catch (error) {
       console.error("Failed to send withdrawal request admin SMS:", error);
     }

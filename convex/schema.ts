@@ -54,6 +54,9 @@ export default defineSchema({
     reviewedBy: v.optional(v.id("users")),
     reviewedAt: v.optional(v.string()),
     rejectionReason: v.optional(v.string()),
+    /** Agent approval needs two different admins. Records the first. */
+    firstApprovedBy: v.optional(v.id("users")),
+    firstApprovedAt: v.optional(v.string()),
   }).index("by_user", ["userId"])
     .index("by_status", ["status"]),
 

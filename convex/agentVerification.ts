@@ -283,6 +283,26 @@ export const approve = mutation({
 
     const now = new Date().toISOString();
 
+    // An agent can record collections and request withdrawals, so approving one
+    // needs two different admins to agree.
+    if (!verification.firstApprovedBy) {
+      await ctx.db.patch(args.verificationId, {
+        status: "under_review",
+        firstApprovedBy: admin._id,
+        firstApprovedAt: now,
+      });
+      await ctx.db.patch(verification.userId, { agentStatus: "under_review" });
+      return;
+    }
+
+    if (verification.firstApprovedBy === admin._id) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message:
+          "You have already approved this agent. A different admin must give the second approval.",
+      });
+    }
+
     await ctx.db.patch(args.verificationId, {
       status: "approved",
       reviewedBy: admin._id,

@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as agentVerification from "../agentVerification.js";
 import type * as collections from "../collections.js";
 import type * as contributors from "../contributors.js";
+import type * as crons from "../crons.js";
 import type * as emails from "../emails.js";
 import type * as sms from "../sms.js";
 import type * as users from "../users.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   agentVerification: typeof agentVerification;
   collections: typeof collections;
   contributors: typeof contributors;
+  crons: typeof crons;
   emails: typeof emails;
   sms: typeof sms;
   users: typeof users;

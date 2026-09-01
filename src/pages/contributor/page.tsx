@@ -36,6 +36,33 @@ export default function ContributorDashboard() {
     );
   }
 
+
+  // Someone who signed themselves up has no agent and no plan yet.
+  if (profile && profile.status === 'inactive' && !profile.dailyAmount) {
+    return (
+      <div className="max-w-lg mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold font-serif">
+            Hello, {profile.name}
+          </h1>
+        </div>
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-6 space-y-2">
+          <p className="font-semibold text-amber-900">
+            You are awaiting an agent
+          </p>
+          <p className="text-sm text-amber-800">
+            OWODE is reviewing your registration and will assign you an agent
+            shortly. Your agent will agree your contribution amount with you,
+            and your card will appear here once that is done.
+          </p>
+          <p className="text-xs text-amber-700 pt-2">
+            We will contact you on {profile.phone}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       {/* Greeting */}

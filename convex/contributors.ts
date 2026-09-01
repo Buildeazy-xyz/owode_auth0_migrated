@@ -507,3 +507,89 @@ export const claimByToken = mutation({
     return { name: contributor.name };
   },
 });
+
+
+/**
+ * A contributor signing up on their own. They are held against the
+ * admin until an admin assigns them a real agent and sets their plan.
+ */
+export const registerSelf = mutation({
+  args: {
+    name: v.string(),
+    phone: v.string(),
+    email: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: 'UNAUTHORIZED',
+        message: 'Please sign in first',
+      });
+    }
+
+    const name = args.name.trim();
+    const phone = args.phone.replace(/[\s()-]/g, '');
+    if (!name) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'Please enter your name' });
+    }
+    if (phone.length < 10) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'Please enter a valid phone number' });
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_token', (q) => q.eq('tokenIdentifier', identity.subject))
+      .unique();
+    if (!user) {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Account not found' });
+    }
+    if (user.contributorId) {
+      throw new ConvexError({
+        code: 'BAD_REQUEST',
+        message: 'You already have a contributor account',
+      });
+    }
+
+    const existing = await ctx.db
+      .query('contributors')
+      .withIndex('by_phone', (q) => q.eq('phone', phone))
+      .first();
+    if (existing) {
+      throw new ConvexError({
+        code: 'BAD_REQUEST',
+        message: 'This phone number is already registered. Ask your agent for your link.',
+      });
+    }
+
+    const admin = await ctx.db
+      .query('users')
+      .filter((q) => q.eq(q.field('isSuperAdmin'), true))
+      .first();
+    if (!admin) {
+      throw new ConvexError({
+        code: 'INTERNAL',
+        message: 'Registration is unavailable right now. Please try again later.',
+      });
+    }
+
+    const contributorId = await ctx.db.insert('contributors', {
+      name,
+      phone,
+      email: args.email?.trim() || undefined,
+      agentId: admin._id,
+      dailyAmount: 0,
+      status: 'inactive',
+      userId: user._id,
+      startDate: new Date().toISOString(),
+    });
+
+    await ctx.db.patch(user._id, {
+      role: 'contributor',
+      contributorId,
+      phone,
+    });
+
+    return { contributorId };
+  },
+});

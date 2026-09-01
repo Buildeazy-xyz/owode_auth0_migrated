@@ -41,6 +41,7 @@ function OnboardingContent() {
   const updateCurrentUser = useMutation(api.users.updateCurrentUser);
   const setRole = useMutation(api.users.setRole);
   const claimAccount = useMutation(api.contributors.claimAccount);
+  const registerSelf = useMutation(api.contributors.registerSelf);
   const submitVerification = useMutation(api.agentVerification.submit);
   const generateUploadUrl = useMutation(
     api.agentVerification.generateUploadUrl,
@@ -48,6 +49,8 @@ function OnboardingContent() {
   const navigate = useNavigate();
 
   // If they already told us who they are before signing in, skip the question.
+  const [selfName, setSelfName] = useState("");
+  const [selfEmail, setSelfEmail] = useState("");
   const [step, setStep] = useState<Step>(() => {
     try {
       const saved = localStorage.getItem("owode_intended_role");
@@ -113,6 +116,33 @@ function OnboardingContent() {
   }
 
   // ─── Handlers ───────────────────────────────────────────────────
+
+  const handleRegisterSelf = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selfName.trim() || !phone.trim()) {
+      toast.error("Please enter your name and phone number");
+      return;
+    }
+    setLoading(true);
+    try {
+      await registerSelf({
+        name: selfName.trim(),
+        phone: phone.trim(),
+        email: selfEmail.trim() || undefined,
+      });
+      toast.success("Registration received. We will assign you an agent shortly.");
+      navigate("/contributor", { replace: true });
+    } catch (error) {
+      if (error instanceof ConvexError) {
+        const data = error.data as { message: string };
+        toast.error(data.message);
+      } else {
+        toast.error("Could not register. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleClaimContributor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,27 +296,47 @@ function OnboardingContent() {
         )}
 
         {/* Contributor phone claim */}
-        {step === "contributor-phone" && (
+        {step === 'contributor-phone' && (
           <div className="max-w-sm mx-auto space-y-6">
-            <form onSubmit={handleClaimContributor} className="space-y-4">
+            <form onSubmit={handleRegisterSelf} className="space-y-4">
               <div className="space-y-2 text-left">
-                <Label htmlFor="claim-phone">Phone Number</Label>
-                <PhoneInput
-                  id="claim-phone"
-                  value={phone}
-                  onChange={setPhone}
+                <Label htmlFor="self-name">Full Name</Label>
+                <Input
+                  id="self-name"
+                  value={selfName}
+                  onChange={(e) => setSelfName(e.target.value)}
+                  placeholder="Your name"
                   required
                   autoFocus
                 />
-                <p className="text-xs text-muted-foreground">
-                  This must match the number your agent used when adding you.
-                </p>
+              </div>
+              <div className="space-y-2 text-left">
+                <Label htmlFor="self-phone">Phone Number</Label>
+                <PhoneInput
+                  id="self-phone"
+                  value={phone}
+                  onChange={setPhone}
+                  required
+                />
+              </div>
+              <div className="space-y-2 text-left">
+                <Label htmlFor="self-email">Email (optional)</Label>
+                <Input
+                  id="self-email"
+                  type="email"
+                  value={selfEmail}
+                  onChange={(e) => setSelfEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Linking..." : "Link My Account"}
+                {loading ? 'Submitting...' : 'Register'}
               </Button>
+              <p className="text-xs text-muted-foreground">
+                OWODE will assign you an agent and agree your contribution amount with you.
+              </p>
             </form>
-            <BackButton onClick={() => setStep("choose")} />
+            <BackButton onClick={() => setStep('choose')} />
           </div>
         )}
 

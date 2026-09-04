@@ -16,21 +16,32 @@ const STANDARD_MONTH_DAYS = 31;
 async function resolveContributorForDashboard(
   ctx: QueryCtx,
   requestedContributorId?: Id<"contributors">,
+  sessionToken?: string,
 ) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new ConvexError({
-      code: "UNAUTHENTICATED",
-      message: "User not logged in",
-    });
-  }
+  // The app signs in with its own session token; the old web app used Auth0.
+  let user = sessionToken
+    ? await ctx.db
+        .query("users")
+        .withIndex("by_session", (q) => q.eq("sessionToken", sessionToken))
+        .first()
+    : null;
 
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_token", (q) =>
-      q.eq("tokenIdentifier", identity.tokenIdentifier),
-    )
-    .unique();
+  if (!user) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHENTICATED",
+        message: "User not logged in",
+      });
+    }
+
+    user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique();
+  }
 
   if (!user) {
     throw new ConvexError({
@@ -417,11 +428,13 @@ function getWeeklyCycleLength(): number {
 export const getMyCardSummary = query({
   args: {
     contributorId: v.optional(v.id("contributors")),
+    sessionToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { contributorId, contributor } = await resolveContributorForDashboard(
       ctx,
       args.contributorId,
+      args.sessionToken,
     );
 
     const frequency = contributor.frequency ?? "daily";
@@ -463,12 +476,16 @@ export const getMyCardSummary = query({
         0,
       );
 
+      // One stamp per payment, not per day - two payments today fill two squares.
       const paidDays = new Set<number>();
-      for (const c of thisCycleCollections) {
-        const cycleDay =
-          getUtcDayDiff(startOfUtcDay(c.collectedAt), cycleStart) + 1;
-        if (cycleDay >= 1 && cycleDay <= STANDARD_MONTH_DAYS) {
-          paidDays.add(cycleDay);
+      let slot = 1;
+      const ordered = [...thisCycleCollections].sort((a, b) =>
+        a.collectedAt.localeCompare(b.collectedAt),
+      );
+      for (const _c of ordered) {
+        if (slot <= STANDARD_MONTH_DAYS) {
+          paidDays.add(slot);
+          slot += 1;
         }
       }
 
@@ -618,5 +635,942 @@ export const getMyCardSummary = query({
       paidMonths: Array.from(paidMonthNumbers).sort((a, b) => a - b),
       currentMonth: currentSlot - 1,
     };
+  },
+});
+
+/** App versions: identify the user by session token rather than Auth0. */
+const userFromSession = async (ctx: any, sessionToken: string) =>
+  await ctx.db
+    .query('users')
+    .withIndex('by_session', (q: any) => q.eq('sessionToken', sessionToken))
+    .first();
+
+export const myCardForApp = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await userFromSession(ctx, args.sessionToken);
+    if (!user?.contributorId) return null;
+
+    const contributor = await ctx.db.get(
+      user.contributorId as Id<'contributors'>,
+    );
+    if (!contributor) return null;
+
+    const collections = await ctx.db
+      .query('collections')
+      .withIndex('by_contributor', (q) => q.eq('contributorId', contributor._id))
+      .collect();
+
+    const totalSaved = collections.reduce((sum, c) => sum + c.amount, 0);
+
+    const withdrawals = await ctx.db
+      .query('withdrawal_requests')
+      .withIndex('by_contributor_and_date', (q) =>
+        q.eq('contributorId', contributor._id),
+      )
+      .collect();
+
+    const paidOut = withdrawals
+      .filter((w) => w.status === 'paid')
+      .reduce((sum, w) => sum + w.amount, 0);
+
+    const agent = await ctx.db.get(contributor.agentId);
+
+    return {
+      name: contributor.name,
+      phone: contributor.phone,
+      status: contributor.status,
+      dailyAmount: contributor.dailyAmount,
+      frequency: contributor.frequency ?? 'daily',
+      totalSaved,
+      available: Math.max(0, totalSaved - paidOut),
+      contributionCount: collections.length,
+      agentName: agent?.name ?? '',
+      agentPhone: agent?.phone ?? '',
+      recent: collections
+        .sort((a, b) => b.collectedAt.localeCompare(a.collectedAt))
+        .slice(0, 20)
+        .map((c) => ({
+          id: c._id,
+          amount: c.amount,
+          collectedAt: c.collectedAt,
+          status: c.status,
+          reference: c.referenceNumber,
+          method: c.paymentMethod,
+        })),
+    };
+  },
+});
+
+export const agentHomeForApp = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user || user.role !== 'agent') return null;
+
+    const contributors = await ctx.db
+      .query('contributors')
+      .withIndex('by_agent', (q) => q.eq('agentId', user._id))
+      .collect();
+
+    const allCollections = await ctx.db
+      .query('collections')
+      .withIndex('by_agent_and_date', (q) => q.eq('agentId', user._id))
+      .collect();
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todayCollections = allCollections.filter((c) =>
+      c.collectedAt.startsWith(today),
+    );
+
+    return {
+      agentName: user.name ?? '',
+      agentStatus: user.agentStatus ?? 'pending',
+      contributorCount: contributors.length,
+      todayTotal: todayCollections.reduce((s, c) => s + c.amount, 0),
+      todayCount: todayCollections.length,
+      allTimeTotal: allCollections.reduce((s, c) => s + c.amount, 0),
+      contributors: contributors.map((c) => ({
+        id: c._id,
+        name: c.name,
+        phone: c.phone,
+        amount: c.dailyAmount,
+        frequency: c.frequency ?? 'daily',
+        status: c.status,
+      })),
+    };
+  },
+});
+
+export const recordForApp = mutation({
+  args: {
+    sessionToken: v.string(),
+    contributorId: v.id('contributors'),
+    amount: v.number(),
+    paymentMethod: v.union(v.literal('cash'), v.literal('bank_transfer')),
+    bankReference: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+
+    if (!user || user.role !== 'agent') {
+      throw new ConvexError({ code: 'FORBIDDEN', message: 'Only agents can record collections' });
+    }
+    if (user.agentStatus !== 'approved') {
+      throw new ConvexError({
+        code: 'FORBIDDEN',
+        message: 'Your agent account is not approved yet',
+      });
+    }
+
+    const contributor = await ctx.db.get(args.contributorId);
+    if (!contributor || contributor.agentId !== user._id) {
+      throw new ConvexError({
+        code: 'FORBIDDEN',
+        message: 'That contributor is not assigned to you',
+      });
+    }
+    if (!args.amount || args.amount <= 0) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'Enter a valid amount' });
+    }
+
+    const referenceNumber =
+      'COL-' + Date.now().toString(36).toUpperCase() + '-' +
+      Math.random().toString(36).slice(2, 6).toUpperCase();
+
+    await ctx.db.insert('collections', {
+      contributorId: contributor._id,
+      agentId: user._id,
+      amount: args.amount,
+      collectedAt: new Date().toISOString(),
+      referenceNumber,
+      status: 'pending',
+      paymentMethod: args.paymentMethod,
+      bankReference: args.bankReference?.trim() || undefined,
+      note: args.note?.trim() || undefined,
+    });
+
+    return { referenceNumber };
+  },
+});
+
+export const adminHomeForApp = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user || (user.role !== 'admin' && !user.isSuperAdmin)) return null;
+
+    const allUsers = await ctx.db.query('users').collect();
+    const allContributors = await ctx.db.query('contributors').collect();
+    const allCollections = await ctx.db.query('collections').collect();
+    const allWithdrawals = await ctx.db.query('withdrawal_requests').collect();
+
+    const agentRow = (u: any) => ({
+      id: u._id,
+      name: u.name ?? '',
+      phone: u.phone ?? '',
+      status: u.agentStatus ?? 'pending',
+    });
+
+    const pendingAgents = allUsers
+      .filter((u) => u.role === 'agent' && (u.agentStatus ?? 'pending') === 'pending')
+      .map(agentRow);
+
+    const rejectedAgents = allUsers
+      .filter((u) => u.role === 'agent' && u.agentStatus === 'rejected')
+      .map(agentRow);
+
+    const approvedAgents = allUsers
+      .filter((u) => u.role === 'agent' && u.agentStatus === 'approved')
+      .map((u) => ({ id: u._id, name: u.name ?? '', phone: u.phone ?? '' }));
+
+    const contributorRow = (c: any) => ({
+      id: c._id,
+      name: c.name,
+      phone: c.phone,
+      amount: c.dailyAmount,
+      frequency: c.frequency ?? 'daily',
+      address: c.address ?? '',
+    });
+
+    const unassigned = allContributors
+      .filter((c) => c.pendingAssignment === true)
+      .map(contributorRow);
+
+    const assignedContributors = await Promise.all(
+      allContributors
+        .filter((c) => c.status === 'active' && !c.pendingAssignment)
+        .map(async (c) => {
+          const agent = await ctx.db.get(c.agentId);
+          return { ...contributorRow(c), agentName: agent?.name ?? '' };
+        }),
+    );
+
+    const declinedContributors = allContributors
+      .filter((c) => c.pendingAssignment === false && c.status === 'inactive')
+      .map(contributorRow);
+
+    const pendingWithdrawals = await Promise.all(
+      allWithdrawals
+        .filter((w) => w.status === 'submitted' || w.status === 'processing')
+        .map(async (w) => {
+          const c = await ctx.db.get(w.contributorId);
+          return {
+            id: w._id,
+            name: c?.name ?? 'Unknown',
+            amount: w.amount,
+            payout: w.payoutAmount ?? w.amount,
+            bankName: w.bankName,
+            accountNumber: w.accountNumber,
+            status: w.status,
+            awaitingSecond: Boolean(w.firstApprovedBy),
+            reference: w.referenceNumber,
+          };
+        }),
+    );
+
+    return {
+      adminName: user.name ?? 'Admin',
+      totalContributors: allContributors.length,
+      totalAgents: approvedAgents.length,
+      totalCollected: allCollections.reduce((s, c) => s + c.amount, 0),
+      pendingAgents,
+      rejectedAgents,
+      approvedAgents,
+      unassigned,
+      assignedContributors,
+      declinedContributors,
+      pendingWithdrawals,
+    };
+  },
+});
+
+async function requireAdminSession(ctx: any, sessionToken: string) {
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_session', (q: any) => q.eq('sessionToken', sessionToken))
+    .first();
+  if (!user || (user.role !== 'admin' && !user.isSuperAdmin)) {
+    throw new ConvexError({ code: 'FORBIDDEN', message: 'Admins only' });
+  }
+  return user;
+}
+
+export const approveAgentForApp = mutation({
+  args: { sessionToken: v.string(), agentId: v.id('users') },
+  handler: async (ctx, args) => {
+    const admin = await requireAdminSession(ctx, args.sessionToken);
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent) {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Agent not found' });
+    }
+    await ctx.db.patch(args.agentId, { agentStatus: 'approved' });
+    return { ok: true };
+  },
+});
+
+export const assignContributorForApp = mutation({
+  args: {
+    sessionToken: v.string(),
+    contributorId: v.id('contributors'),
+    agentId: v.id('users'),
+    amount: v.number(),
+    frequency: v.union(
+      v.literal('daily'),
+      v.literal('weekly'),
+      v.literal('monthly'),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireAdminSession(ctx, args.sessionToken);
+    if (!args.amount || args.amount <= 0) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'Enter a valid amount' });
+    }
+    await ctx.db.patch(args.contributorId, {
+      agentId: args.agentId,
+      dailyAmount: args.amount,
+      frequency: args.frequency,
+      status: 'active',
+      pendingAssignment: undefined,
+      startDate: new Date().toISOString(),
+    });
+    return { ok: true };
+  },
+});
+
+export const makeAdminTemp = mutation({
+  args: { phone: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_phone', (q) => q.eq('phone', args.phone))
+      .first();
+    if (!user) return { ok: false, message: 'no user with that phone' };
+    await ctx.db.patch(user._id, { role: 'admin', isSuperAdmin: true });
+    return { ok: true, name: user.name };
+  },
+});
+
+export const wipeUsersTemp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query('users').collect();
+    for (const u of users) await ctx.db.delete(u._id);
+
+    const contributors = await ctx.db.query('contributors').collect();
+    for (const c of contributors) await ctx.db.delete(c._id);
+
+    const collections = await ctx.db.query('collections').collect();
+    for (const c of collections) await ctx.db.delete(c._id);
+
+    const withdrawals = await ctx.db.query('withdrawal_requests').collect();
+    for (const w of withdrawals) await ctx.db.delete(w._id);
+
+    return {
+      users: users.length,
+      contributors: contributors.length,
+      collections: collections.length,
+      withdrawals: withdrawals.length,
+    };
+  },
+});
+
+export const rejectAgentForApp = mutation({
+  args: { sessionToken: v.string(), agentId: v.id('users'), reason: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    await requireAdminSession(ctx, args.sessionToken);
+    await ctx.db.patch(args.agentId, { agentStatus: 'rejected' });
+    return { ok: true };
+  },
+});
+
+export const rejectContributorForApp = mutation({
+  args: { sessionToken: v.string(), contributorId: v.id('contributors') },
+  handler: async (ctx, args) => {
+    await requireAdminSession(ctx, args.sessionToken);
+    await ctx.db.patch(args.contributorId, {
+      pendingAssignment: false,
+      status: 'inactive',
+    });
+    return { ok: true };
+  },
+});
+
+export const cleanupTemp = mutation({
+  args: { agentPhone: v.optional(v.string()), contributorName: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    let deletedAgent = false;
+    if (args.agentPhone) {
+      const a = await ctx.db
+        .query('users')
+        .withIndex('by_phone', (q) => q.eq('phone', args.agentPhone!))
+        .first();
+      if (a) {
+        await ctx.db.delete(a._id);
+        deletedAgent = true;
+      }
+    }
+
+    let unassigned = false;
+    if (args.contributorName) {
+      const all = await ctx.db.query('contributors').collect();
+      const c = all.find(
+        (x) => x.name.toLowerCase() === args.contributorName!.toLowerCase(),
+      );
+      if (c) {
+        await ctx.db.patch(c._id, { pendingAssignment: true, status: 'inactive' });
+        unassigned = true;
+      }
+    }
+
+    return { deletedAgent, unassigned };
+  },
+});
+
+export const listUsersTemp = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query('users').collect();
+    return users.map((u) => ({
+      name: u.name ?? '',
+      phone: u.phone ?? '',
+      role: u.role ?? 'none',
+      hasPassword: Boolean(u.passwordHash),
+    }));
+  },
+});
+
+export const requestWithdrawalForApp = mutation({
+  args: {
+    sessionToken: v.string(),
+    contributorId: v.id('contributors'),
+    amount: v.number(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    accountName: v.string(),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user || user.role !== 'agent' || user.agentStatus !== 'approved') {
+      throw new ConvexError({
+        code: 'FORBIDDEN',
+        message: 'Only approved agents can request a withdrawal',
+      });
+    }
+
+    const contributor = await ctx.db.get(args.contributorId);
+    if (!contributor || contributor.agentId !== user._id) {
+      throw new ConvexError({
+        code: 'FORBIDDEN',
+        message: 'That contributor is not assigned to you',
+      });
+    }
+
+    const collections = await ctx.db
+      .query('collections')
+      .withIndex('by_contributor', (q) => q.eq('contributorId', contributor._id))
+      .collect();
+    const totalSaved = collections.reduce((s, c) => s + c.amount, 0);
+
+    const previous = await ctx.db
+      .query('withdrawal_requests')
+      .withIndex('by_contributor_and_date', (q) =>
+        q.eq('contributorId', contributor._id),
+      )
+      .collect();
+    const taken = previous
+      .filter((w) => w.status === 'paid' || w.status === 'submitted' || w.status === 'processing')
+      .reduce((s, w) => s + w.amount, 0);
+
+    const available = Math.max(0, totalSaved - taken);
+    if (args.amount <= 0) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'Enter a valid amount' });
+    }
+    if (args.amount > available) {
+      throw new ConvexError({
+        code: 'BAD_REQUEST',
+        message: `Only ₦${available.toLocaleString()} is available`,
+      });
+    }
+
+    const referenceNumber =
+      'WDR-' + Date.now().toString(36).toUpperCase();
+
+    await ctx.db.insert('withdrawal_requests', {
+      contributorId: contributor._id,
+      agentId: user._id,
+      amount: args.amount,
+      bankName: args.bankName.trim(),
+      accountNumber: args.accountNumber.trim(),
+      accountName: args.accountName.trim(),
+      note: args.note?.trim() || undefined,
+      requestedAt: new Date().toISOString(),
+      referenceNumber,
+      status: 'submitted',
+      availableBalanceAtRequest: available,
+      payoutAmount: args.amount,
+    });
+
+    return { referenceNumber, available: available - args.amount };
+  },
+});
+
+export const todayCountForApp = query({
+  args: { sessionToken: v.string(), contributorId: v.id('contributors') },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user) return { count: 0, total: 0 };
+
+    const today = new Date().toISOString().slice(0, 10);
+    const all = await ctx.db
+      .query('collections')
+      .withIndex('by_contributor', (q) => q.eq('contributorId', args.contributorId))
+      .collect();
+    const todays = all.filter((c) => c.collectedAt.startsWith(today));
+
+    return {
+      count: todays.length,
+      total: todays.reduce((s, c) => s + c.amount, 0),
+    };
+  },
+});
+
+export const contributorDetailForApp = query({
+  args: { sessionToken: v.string(), contributorId: v.id('contributors') },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user) return null;
+
+    const c = await ctx.db.get(args.contributorId);
+    if (!c) return null;
+    if (user.role === 'agent' && c.agentId !== user._id) return null;
+
+    const collections = await ctx.db
+      .query('collections')
+      .withIndex('by_contributor', (q) => q.eq('contributorId', c._id))
+      .collect();
+
+    const totalSaved = collections.reduce((s, x) => s + x.amount, 0);
+
+    const withdrawals = await ctx.db
+      .query('withdrawal_requests')
+      .withIndex('by_contributor_and_date', (q) => q.eq('contributorId', c._id))
+      .collect();
+    const taken = withdrawals
+      .filter((w) => w.status === 'paid')
+      .reduce((s, w) => s + w.amount, 0);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todays = collections.filter((x) => x.collectedAt.startsWith(today));
+
+    return {
+      id: c._id,
+      name: c.name,
+      phone: c.phone,
+      email: c.email ?? '',
+      address: c.address ?? '',
+      occupation: c.occupation ?? '',
+      amount: c.dailyAmount,
+      frequency: c.frequency ?? 'daily',
+      status: c.status,
+      totalSaved,
+      available: Math.max(0, totalSaved - taken),
+      paymentCount: collections.length,
+      todayCount: todays.length,
+      todayTotal: todays.reduce((s, x) => s + x.amount, 0),
+      recent: collections
+        .sort((a, b) => b.collectedAt.localeCompare(a.collectedAt))
+        .slice(0, 20)
+        .map((x) => ({
+          id: x._id,
+          amount: x.amount,
+          collectedAt: x.collectedAt,
+          status: x.status,
+          method: x.paymentMethod,
+          reference: x.referenceNumber,
+        })),
+    };
+  },
+});
+
+async function userFromToken(ctx: any, sessionToken: string) {
+  return await ctx.db
+    .query('users')
+    .withIndex('by_session', (q: any) => q.eq('sessionToken', sessionToken))
+    .first();
+}
+
+export const listMessagesForApp = query({
+  args: {
+    sessionToken: v.string(),
+    contributorId: v.optional(v.id('contributors')),
+  },
+  handler: async (ctx, args) => {
+    const user = await userFromToken(ctx, args.sessionToken);
+    if (!user) return null;
+
+    const targetId = (
+      user.role === 'contributor' ? user.contributorId : args.contributorId
+    ) as Id<'contributors'> | undefined;
+    if (!targetId) return null;
+
+    const contributor = await ctx.db.get(targetId);
+    if (!contributor) return null;
+    if (user.role === 'agent' && contributor.agentId !== user._id) return null;
+
+    const msgs = await ctx.db
+      .query('messages')
+      .withIndex('by_contributor', (q) => q.eq('contributorId', targetId))
+      .collect();
+
+    const withNames = await Promise.all(
+      msgs
+        .sort((a, b) => a.sentAt.localeCompare(b.sentAt))
+        .map(async (m) => {
+          const sender = await ctx.db.get(m.senderId);
+          return {
+            id: m._id,
+            body: m.body,
+            sentAt: m.sentAt,
+            senderRole: m.senderRole,
+            senderName: sender?.name ?? '',
+            mine: m.senderId === user._id,
+            audioUrl: m.audioStorageId
+              ? await ctx.storage.getUrl(m.audioStorageId)
+              : null,
+            audioSeconds: m.audioSeconds ?? null,
+          };
+        }),
+    );
+
+    return {
+      contributorName: contributor.name,
+      messages: withNames,
+    };
+  },
+});
+
+export const sendMessageForApp = mutation({
+  args: {
+    sessionToken: v.string(),
+    contributorId: v.optional(v.id('contributors')),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await userFromToken(ctx, args.sessionToken);
+    if (!user) {
+      throw new ConvexError({ code: 'UNAUTHORIZED', message: 'Please sign in' });
+    }
+    if (!args.body.trim()) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'Type a message' });
+    }
+
+    const targetId = (
+      user.role === 'contributor' ? user.contributorId : args.contributorId
+    ) as Id<'contributors'> | undefined;
+    if (!targetId) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'No conversation yet' });
+    }
+
+    const contributor = await ctx.db.get(targetId);
+    if (!contributor) {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Contributor not found' });
+    }
+    if (user.role === 'agent' && contributor.agentId !== user._id) {
+      throw new ConvexError({ code: 'FORBIDDEN', message: 'Not your contributor' });
+    }
+
+    const now = new Date().toISOString();
+
+    await ctx.db.insert('messages', {
+      contributorId: targetId,
+      agentId: contributor.agentId,
+      senderId: user._id,
+      senderRole: (user.role ?? 'contributor') as any,
+      body: args.body.trim(),
+      sentAt: now,
+    });
+
+    // When a contributor writes and nobody has replied recently, let them know
+    // their agent has been notified rather than leaving them in silence.
+    if (user.role === 'contributor') {
+      const all = await ctx.db
+        .query('messages')
+        .withIndex('by_contributor', (q) => q.eq('contributorId', targetId))
+        .collect();
+
+      const lastFromStaff = all
+        .filter((m) => m.senderRole !== 'contributor')
+        .sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0];
+
+      const SIX_HOURS = 6 * 60 * 60 * 1000;
+      const stale =
+        !lastFromStaff ||
+        Date.now() - new Date(lastFromStaff.sentAt).getTime() > SIX_HOURS;
+
+      if (stale) {
+        const agent = await ctx.db.get(contributor.agentId);
+        const phone = agent?.phone ? ' You can also call ' + agent.phone + '.' : '';
+
+        await ctx.db.insert('messages', {
+          contributorId: targetId,
+          agentId: contributor.agentId,
+          senderId: contributor.agentId,
+          senderRole: 'agent' as const,
+          body:
+            'Thank you for your message. Your agent has been notified and will reply as soon as they can.' +
+            phone,
+          sentAt: new Date(Date.now() + 1000).toISOString(),
+        });
+      }
+    }
+
+    return { ok: true };
+  },
+});
+
+export const adminConversationsForApp = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user || (user.role !== 'admin' && !user.isSuperAdmin)) return null;
+
+    const all = await ctx.db.query('messages').collect();
+
+    const byContributor = new Map<string, any[]>();
+    for (const m of all) {
+      const key = m.contributorId as unknown as string;
+      if (!byContributor.has(key)) byContributor.set(key, []);
+      byContributor.get(key)!.push(m);
+    }
+
+    const result = await Promise.all(
+      Array.from(byContributor.entries()).map(async ([id, msgs]) => {
+        const c: any = await ctx.db.get(id as any);
+        const agent: any = c ? await ctx.db.get(c.agentId) : null;
+        const sorted = msgs.sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+        return {
+          contributorId: id,
+          contributorName: c?.name ?? 'Unknown',
+          agentName: agent?.name ?? '',
+          last: sorted[0]?.body ?? '',
+          lastAt: sorted[0]?.sentAt ?? '',
+          count: msgs.length,
+        };
+      }),
+    );
+
+    return result.sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+  },
+});
+
+export const reviewWithdrawalForApp = mutation({
+  args: {
+    sessionToken: v.string(),
+    requestId: v.id('withdrawal_requests'),
+    action: v.union(v.literal('paid'), v.literal('rejected')),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdminSession(ctx, args.sessionToken);
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Request not found' });
+    }
+    if (request.status === 'paid' || request.status === 'rejected') {
+      throw new ConvexError({
+        code: 'BAD_REQUEST',
+        message: 'This withdrawal has already been settled',
+      });
+    }
+
+    const now = new Date().toISOString();
+    const DUAL_THRESHOLD = 100000;
+
+    if (args.action === 'paid' && request.amount >= DUAL_THRESHOLD) {
+      if (!request.firstApprovedBy) {
+        await ctx.db.patch(args.requestId, {
+          status: 'processing',
+          firstApprovedBy: admin._id,
+          firstApprovedAt: now,
+          reviewNote: args.note?.trim() || undefined,
+        });
+        return { status: 'processing', awaitingSecond: true };
+      }
+      if (request.firstApprovedBy === admin._id) {
+        throw new ConvexError({
+          code: 'BAD_REQUEST',
+          message: 'You already approved this. A different admin must give the second approval.',
+        });
+      }
+    }
+
+    await ctx.db.patch(args.requestId, {
+      status: args.action,
+      reviewedBy: admin._id,
+      reviewedAt: now,
+      reviewNote: args.note?.trim() || undefined,
+      ...(args.action === 'paid'
+        ? { receiptStatus: 'awaiting' as const, receiptAskedAt: now }
+        : {}),
+    });
+
+    return { status: args.action, awaitingSecond: false };
+  },
+});
+
+export const generateVoiceUploadUrl = mutation({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await userFromToken(ctx, args.sessionToken);
+    if (!user) {
+      throw new ConvexError({ code: 'UNAUTHORIZED', message: 'Please sign in' });
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const sendVoiceNoteForApp = mutation({
+  args: {
+    sessionToken: v.string(),
+    contributorId: v.optional(v.id('contributors')),
+    storageId: v.id('_storage'),
+    seconds: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await userFromToken(ctx, args.sessionToken);
+    if (!user) {
+      throw new ConvexError({ code: 'UNAUTHORIZED', message: 'Please sign in' });
+    }
+
+    const targetId = (
+      user.role === 'contributor' ? user.contributorId : args.contributorId
+    ) as Id<'contributors'> | undefined;
+    if (!targetId) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'No conversation yet' });
+    }
+
+    const contributor = await ctx.db.get(targetId);
+    if (!contributor) {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Contributor not found' });
+    }
+    if (user.role === 'agent' && contributor.agentId !== user._id) {
+      throw new ConvexError({ code: 'FORBIDDEN', message: 'Not your contributor' });
+    }
+
+    await ctx.db.insert('messages', {
+      contributorId: targetId,
+      agentId: contributor.agentId,
+      senderId: user._id,
+      senderRole: (user.role ?? 'contributor') as any,
+      body: 'Voice note',
+      audioStorageId: args.storageId,
+      audioSeconds: Math.round(args.seconds),
+      sentAt: new Date().toISOString(),
+    });
+
+    return { ok: true };
+  },
+});
+
+export const requestOwnWithdrawal = mutation({
+  args: {
+    sessionToken: v.string(),
+    amount: v.number(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    accountName: v.string(),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await userFromToken(ctx, args.sessionToken);
+    if (!user?.contributorId) {
+      throw new ConvexError({
+        code: 'FORBIDDEN',
+        message: 'Only contributors can request their own withdrawal',
+      });
+    }
+
+    const contributor = await ctx.db.get(
+      user.contributorId as Id<'contributors'>,
+    );
+    if (!contributor) {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Account not found' });
+    }
+
+    const collections = await ctx.db
+      .query('collections')
+      .withIndex('by_contributor', (q) => q.eq('contributorId', contributor._id))
+      .collect();
+    const totalSaved = collections.reduce((s, c) => s + c.amount, 0);
+
+    const previous = await ctx.db
+      .query('withdrawal_requests')
+      .withIndex('by_contributor_and_date', (q) =>
+        q.eq('contributorId', contributor._id),
+      )
+      .collect();
+    const taken = previous
+      .filter(
+        (w) =>
+          w.status === 'paid' ||
+          w.status === 'submitted' ||
+          w.status === 'processing',
+      )
+      .reduce((s, w) => s + w.amount, 0);
+
+    const available = Math.max(0, totalSaved - taken);
+
+    if (args.amount <= 0) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'Enter a valid amount' });
+    }
+    if (args.amount > available) {
+      throw new ConvexError({
+        code: 'BAD_REQUEST',
+        message: `You have ₦${available.toLocaleString()} available`,
+      });
+    }
+
+    const referenceNumber = 'WDR-' + Date.now().toString(36).toUpperCase();
+
+    await ctx.db.insert('withdrawal_requests', {
+      contributorId: contributor._id,
+      agentId: contributor.agentId,
+      amount: args.amount,
+      bankName: args.bankName.trim(),
+      accountNumber: args.accountNumber.trim(),
+      accountName: args.accountName.trim(),
+      note: args.note?.trim() || undefined,
+      requestedAt: new Date().toISOString(),
+      referenceNumber,
+      status: 'submitted',
+      availableBalanceAtRequest: available,
+      payoutAmount: args.amount,
+    });
+
+    return { referenceNumber, remaining: available - args.amount };
   },
 });

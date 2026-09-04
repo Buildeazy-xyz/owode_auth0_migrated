@@ -33,7 +33,17 @@ export default defineSchema({
         v.literal("rejected"),
       ),
     ),
-  }).index("by_token", ["tokenIdentifier"]),
+    /** Own-login: hashed password and session token, replacing Auth0. */
+    passwordHash: v.optional(v.string()),
+    sessionToken: v.optional(v.string()),
+    /** Four-digit PIN confirming money actions. Agents and admins only. */
+    pinHash: v.optional(v.string()),
+    resetCode: v.optional(v.string()),
+    resetCodeExpiresAt: v.optional(v.string()),
+    resetAttempts: v.optional(v.number()),
+  }).index("by_token", ["tokenIdentifier"])
+    .index("by_phone", ["phone"])
+    .index("by_session", ["sessionToken"]),
 
   /** Agent verification applications */
   agent_verifications: defineTable({
@@ -82,6 +92,9 @@ export default defineSchema({
     startDate: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("inactive")),
     userId: v.optional(v.id("users")),
+    address: v.optional(v.string()),
+    occupation: v.optional(v.string()),
+    pendingAssignment: v.optional(v.boolean()),
     /** One-time token so a contributor can claim their account from an SMS link. */
     inviteToken: v.optional(v.string()),
     inviteCreatedAt: v.optional(v.string()),
@@ -163,6 +176,26 @@ export default defineSchema({
     .index("by_contributor_and_date", ["contributorId", "requestedAt"])
     .index("by_reference", ["referenceNumber"])
     .index("by_status", ["status"]),
+
+  messages: defineTable({
+    contributorId: v.id("contributors"),
+    agentId: v.id("users"),
+    senderId: v.id("users"),
+    senderRole: v.union(
+      v.literal("contributor"),
+      v.literal("agent"),
+      v.literal("admin"),
+    ),
+    body: v.string(),
+    /** A voice note instead of typed text. */
+    audioStorageId: v.optional(v.id("_storage")),
+    audioSeconds: v.optional(v.number()),
+    sentAt: v.string(),
+    readByContributor: v.optional(v.boolean()),
+    readByAgent: v.optional(v.boolean()),
+  })
+    .index("by_contributor", ["contributorId"])
+    .index("by_agent", ["agentId"]),
 
   contributor_deletion_requests: defineTable({
     contributorId: v.id("contributors"),

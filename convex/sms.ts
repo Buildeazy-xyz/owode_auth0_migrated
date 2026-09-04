@@ -258,3 +258,18 @@ export const sendWithdrawalRequestAdminSMS = internalAction({
     }
   },
 });
+
+export const sendPasswordResetSMS = internalAction({
+  args: { to: v.string(), name: v.string(), code: v.string() },
+  handler: async (_ctx, { to, name, code }) => {
+    try {
+      const messageId = await sendTermiiSms(
+        to,
+        `Hello ${name}, your OWODE password reset code is ${code}. It expires in 10 minutes. If you did not ask for this, ignore this message. - OWODE`,
+      );
+      console.info('Password reset SMS sent:', { to, id: messageId });
+    } catch (error) {
+      console.error('Failed to send password reset SMS:', error);
+    }
+  },
+});

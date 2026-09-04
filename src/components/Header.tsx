@@ -1,113 +1,49 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button.tsx";
-import { Skeleton } from "@/components/ui/skeleton.tsx";
-import { Menu, X, Download } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
-import { usePwaInstall } from "@/hooks/use-pwa-install.ts";
-import { toast } from "sonner";
-import {
-  Authenticated,
-  Unauthenticated,
-  AuthLoading,
-  useQuery,
-} from "convex/react";
-import { api } from "@/convex/_generated/api.js";
-import { SignInButton } from "@/components/ui/signin.tsx";
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button.tsx';
+import { Menu, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 
 const NAV_LINKS = [
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Ecosystem", href: "#ecosystem" },
-  { label: "Features", href: "#features" },
-  { label: "About", href: "/about" },
-  { label: "FAQ", href: "/faq" },
-  { label: "Contact", href: "/contact" },
+  { label: 'How It Works', href: '#-how-it-works' },
+  { label: 'Ecosystem', href: '#ecosystem' },
+  { label: 'Features', href: '#features' },
+  { label: 'About', href: '/about' },
+  { label: 'FAQ', href: '/faq' },
+  { label: 'Contact', href: '/contact' },
 ];
 
-/** Resolves the correct dashboard URL based on the user's role */
-function DashboardLink({ className }: { className?: string }) {
-  const user = useQuery(api.users.getCurrentUser);
-  if (user === undefined || user === null) {
-    return <Skeleton className="h-9 w-24" />;
-  }
-  const href =
-    user.role === "admin"
-      ? "/admin"
-      : user.role === "agent"
-        ? "/agent"
-        : user.role === "contributor"
-          ? "/contributor"
-          : "/onboarding";
-  return (
-    <Button size="sm" asChild className={className}>
-      <Link to={href}>Dashboard</Link>
-    </Button>
-  );
-}
-
 export default function Header() {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { canInstall, isInstalled, isIOS, requiresManualInstall, install } =
-    usePwaInstall();
-
-  const handleInstallClick = async () => {
-    const installed = await install();
-    if (installed) return;
-
-    if (isIOS || requiresManualInstall) {
-      toast.info(
-        'On iPhone/iPad, open this site in Safari, tap Share, then choose "Add to Home Screen".',
-        { duration: 6000 },
-      );
-      return;
-    }
-
-    toast.info(
-      'Open this site in Chrome or Safari and use the browser menu to select "Install app" or "Add to Home Screen".',
-      { duration: 5000 },
-    );
-  };
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  const [open, setOpen] = useState(false);
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-background/95 backdrop-blur-md shadow-sm border-b border-border"
-          : "bg-transparent"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
+    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex h-16 items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-2">
-            <img
-              src="/images/logo.png"
-              alt="OWODE Financial Group"
-              className="h-10 w-auto"
-            />
+            <span
+              className="text-xl font-bold tracking-tight"
+              style={{ color: '#1e3a6d' }}
+            >
+              OWODE
+            </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-6">
             {NAV_LINKS.map((link) =>
-              link.href.startsWith("/") ? (
+              link.href.startsWith('/') ? (
                 <Link
-                  key={link.href}
+                  key={link.label}
                   to={link.href}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-sm text-muted-foreground hover:text-foreground"
                 >
                   {link.label}
                 </Link>
               ) : (
                 <a
-                  key={link.href}
+                  key={link.label}
                   href={link.href}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-sm text-muted-foreground hover:text-foreground"
                 >
                   {link.label}
                 </a>
@@ -115,136 +51,60 @@ export default function Header() {
             )}
           </nav>
 
-          {/* Desktop auth buttons */}
-          <div className="hidden md:flex items-center gap-3">
-            {(canInstall || requiresManualInstall) && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleInstallClick}
-                className="gap-1.5"
-              >
-                <Download className="w-4 h-4" />
-                Install App
-              </Button>
-            )}
-            <AuthLoading>
-              <Skeleton className="h-9 w-20" />
-            </AuthLoading>
-            <Unauthenticated>
-              <SignInButton variant="ghost" size="sm" />
-              <Button size="sm" asChild>
-                <Link to="/get-started">Get Started</Link>
-              </Button>
-            </Unauthenticated>
-            <Authenticated>
-              <DashboardLink />
-              <SignInButton size="sm" variant="ghost" />
-            </Authenticated>
+          <div className="hidden md:flex items-center gap-2">
+            <Button size="sm" asChild>
+              <a href="#get-the-app">Get the app</a>
+            </Button>
           </div>
 
-          <div className="md:hidden flex items-center gap-1">
-            <Unauthenticated>
-              <SignInButton
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs"
-                showIcon={false}
-                signInText="Sign In"
-              />
-              <SignInButton
-                size="sm"
-                className="h-8 px-2 text-xs"
-                signInText="Sign Up"
-                showIcon={false}
-                authMode="signup"
-              />
-            </Unauthenticated>
-            {!isInstalled && (
-              <Button
-                size="icon"
-                variant="secondary"
-                onClick={handleInstallClick}
-                className="h-9 w-9"
-                aria-label="Install app"
-              >
-                <Download className="w-4 h-4" />
-              </Button>
-            )}
-            <button
-              className="p-2 text-foreground"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle menu"
-            >
-            {mobileMenuOpen ? (
-              <X className="w-5 h-5" />
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
+          <button
+            className="md:hidden p-2"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Menu"
+          >
+            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          </div>
         </div>
       </div>
 
       <AnimatePresence>
-        {mobileMenuOpen && (
+        {open ? (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-background/95 backdrop-blur-md border-b border-border overflow-hidden"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="md:hidden border-t overflow-hidden"
           >
-            <nav className="px-4 py-4 space-y-1">
+            <div className="px-4 py-4 space-y-3">
               {NAV_LINKS.map((link) =>
-                link.href.startsWith("/") ? (
+                link.href.startsWith('/') ? (
                   <Link
-                    key={link.href}
+                    key={link.label}
                     to={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setOpen(false)}
+                    className="block text-sm text-muted-foreground"
                   >
                     {link.label}
                   </Link>
                 ) : (
                   <a
-                    key={link.href}
+                    key={link.label}
                     href={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setOpen(false)}
+                    className="block text-sm text-muted-foreground"
                   >
                     {link.label}
                   </a>
                 ),
               )}
-              <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <AuthLoading>
-                  <Skeleton className="h-9 w-full" />
-                </AuthLoading>
-                <Unauthenticated>
-                  <SignInButton
-                    variant="ghost"
-                    size="sm"
-                    className="justify-start"
-                  />
-                  <SignInButton
-                    size="sm"
-                    signInText="Sign Up"
-                    showIcon={false}
-                    authMode="signup"
-                  />
-                </Unauthenticated>
-                <Authenticated>
-                  <DashboardLink className="w-full" />
-                  <SignInButton
-                    size="sm"
-                    variant="ghost"
-                    className="justify-start"
-                  />
-                </Authenticated>
-              </div>
-            </nav>
+              <Button size="sm" className="w-full" asChild>
+                <a href="#get-the-app" onClick={() => setOpen(false)}>
+                  Get the app
+                </a>
+              </Button>
+            </div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </header>
   );

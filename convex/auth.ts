@@ -270,3 +270,43 @@ export const confirmPasswordReset = action({
     };
   },
 });
+
+
+/** Change the PIN by confirming the account password. */
+export const resetPin = action({
+  args: {
+    sessionToken: v.string(),
+    password: v.string(),
+    newPin: v.string(),
+  },
+  handler: async (ctx, args): Promise<any> => {
+    if (!/^\d{4}$/.test(args.newPin)) {
+      throw new ConvexError({
+        code: 'BAD_REQUEST',
+        message: 'Your PIN must be four digits',
+      });
+    }
+
+    const found: any = await ctx.runQuery(internal.authStore.findBySession, {
+      sessionToken: args.sessionToken,
+    });
+
+    if (!found?.passwordHash) {
+      throw new ConvexError({ code: 'UNAUTHORIZED', message: 'Please sign in again' });
+    }
+
+    const ok = await bcrypt.compare(args.password, found.passwordHash);
+    if (!ok) {
+      throw new ConvexError({
+        code: 'BAD_PASSWORD',
+        message: 'That password is not correct',
+      });
+    }
+
+    const pinHash = await bcrypt.hash(args.newPin, 10);
+    return await ctx.runMutation(internal.authStore.storePin, {
+      sessionToken: args.sessionToken,
+      pinHash,
+    });
+  },
+});

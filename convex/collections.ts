@@ -674,6 +674,11 @@ export const myCardForApp = query({
       .filter((w) => w.status === 'paid')
       .reduce((sum, w) => sum + w.amount, 0);
 
+    // OWODE keeps one contribution per 31-payment cycle as its commission.
+    const cycles = collections.length === 0 ? 0 : Math.floor((collections.length - 1) / 31) + 1;
+    const commission = cycles * (contributor.dailyAmount ?? 0);
+
+
     const agent = await ctx.db.get(contributor.agentId);
 
     return {
@@ -879,8 +884,19 @@ export const adminHomeForApp = query({
         }),
     );
 
+    // What OWODE has earned, taken from paid-out withdrawals.
+    const companyProfit = allWithdrawals
+      .filter((w) => w.status === 'paid')
+      .reduce((sum, w) => sum + (w.commissionTaken ?? 0), 0);
+
+    const profitPending = allWithdrawals
+      .filter((w) => w.status === 'submitted' || w.status === 'processing')
+      .reduce((sum, w) => sum + (w.commissionTaken ?? 0), 0);
+
     return {
       adminName: user.name ?? 'Admin',
+      companyProfit,
+      profitPending,
       totalContributors: allContributors.length,
       totalAgents: approvedAgents.length,
       totalCollected: allCollections.reduce((s, c) => s + c.amount, 0),
@@ -1096,6 +1112,10 @@ export const requestWithdrawalForApp = mutation({
       .filter((w) => w.status === 'paid' || w.status === 'submitted' || w.status === 'processing')
       .reduce((s, w) => s + w.amount, 0);
 
+    // OWODE keeps one contribution per 31-payment cycle as its commission.
+    const cycles = collections.length === 0 ? 0 : Math.floor((collections.length - 1) / 31) + 1;
+    const commission = cycles * (contributor.dailyAmount ?? 0);
+
     const available = Math.max(0, totalSaved - taken);
     if (args.amount <= 0) {
       throw new ConvexError({ code: 'BAD_REQUEST', message: 'Enter a valid amount' });
@@ -1106,6 +1126,16 @@ export const requestWithdrawalForApp = mutation({
         message: `Only ₦${available.toLocaleString()} is available`,
       });
     }
+
+    // One fee per completed cycle of 31 contributions, charged once.
+    const alreadyCharged = previous.reduce(
+      (sum, w) => sum + (w.cyclesCharged ?? 0),
+      0,
+    );
+    const completedCycles = Math.floor(collections.length / 31);
+    const cyclesToCharge = Math.max(0, completedCycles - alreadyCharged);
+    const commissionTaken = cyclesToCharge * (contributor.dailyAmount ?? 0);
+    const payoutAmount = Math.max(0, args.amount - commissionTaken);
 
     const referenceNumber =
       'WDR-' + Date.now().toString(36).toUpperCase();
@@ -1122,7 +1152,9 @@ export const requestWithdrawalForApp = mutation({
       referenceNumber,
       status: 'submitted',
       availableBalanceAtRequest: available,
-      payoutAmount: args.amount,
+      payoutAmount,
+      commissionTaken,
+      cyclesCharged: cyclesToCharge,
     });
 
     return { referenceNumber, available: available - args.amount };
@@ -1179,6 +1211,10 @@ export const contributorDetailForApp = query({
     const taken = withdrawals
       .filter((w) => w.status === 'paid')
       .reduce((s, w) => s + w.amount, 0);
+
+    // OWODE keeps one contribution per 31-payment cycle as its commission.
+    const cycles = collections.length === 0 ? 0 : Math.floor((collections.length - 1) / 31) + 1;
+    const commission = cycles * (c.dailyAmount ?? 0);
 
     const today = new Date().toISOString().slice(0, 10);
     const todays = collections.filter((x) => x.collectedAt.startsWith(today));
@@ -1542,6 +1578,10 @@ export const requestOwnWithdrawal = mutation({
       )
       .reduce((s, w) => s + w.amount, 0);
 
+    // OWODE keeps one contribution per 31-payment cycle as its commission.
+    const cycles = collections.length === 0 ? 0 : Math.floor((collections.length - 1) / 31) + 1;
+    const commission = cycles * (contributor.dailyAmount ?? 0);
+
     const available = Math.max(0, totalSaved - taken);
 
     if (args.amount <= 0) {
@@ -1553,6 +1593,16 @@ export const requestOwnWithdrawal = mutation({
         message: `You have ₦${available.toLocaleString()} available`,
       });
     }
+
+    // One fee per completed cycle of 31 contributions, charged once.
+    const alreadyCharged = previous.reduce(
+      (sum, w) => sum + (w.cyclesCharged ?? 0),
+      0,
+    );
+    const completedCycles = Math.floor(collections.length / 31);
+    const cyclesToCharge = Math.max(0, completedCycles - alreadyCharged);
+    const commissionTaken = cyclesToCharge * (contributor.dailyAmount ?? 0);
+    const payoutAmount = Math.max(0, args.amount - commissionTaken);
 
     const referenceNumber = 'WDR-' + Date.now().toString(36).toUpperCase();
 
@@ -1568,9 +1618,136 @@ export const requestOwnWithdrawal = mutation({
       referenceNumber,
       status: 'submitted',
       availableBalanceAtRequest: available,
-      payoutAmount: args.amount,
+      payoutAmount,
+      commissionTaken,
+      cyclesCharged: cyclesToCharge,
     });
 
     return { referenceNumber, remaining: available - args.amount };
+  },
+});
+
+export const clearMessagesTemp = mutation({
+  args: { phone: v.string() },
+  handler: async (ctx, args) => {
+    const all = await ctx.db.query('contributors').collect();
+    const c = all.find((x) => x.phone === args.phone);
+    if (!c) return { ok: false, message: 'no contributor with that phone' };
+
+    const msgs = await ctx.db
+      .query('messages')
+      .withIndex('by_contributor', (q) => q.eq('contributorId', c._id))
+      .collect();
+
+    for (const m of msgs) await ctx.db.delete(m._id);
+
+    return { ok: true, name: c.name, deleted: msgs.length };
+  },
+});
+
+export const updateMyBankDetails = mutation({
+  args: {
+    sessionToken: v.string(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    accountName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await userFromToken(ctx, args.sessionToken);
+    if (!user?.contributorId) {
+      throw new ConvexError({ code: 'FORBIDDEN', message: 'Contributors only' });
+    }
+    await ctx.db.patch(user.contributorId as Id<'contributors'>, {
+      bankName: args.bankName.trim() || undefined,
+      accountNumber: args.accountNumber.trim() || undefined,
+      accountName: args.accountName.trim() || undefined,
+    });
+    return { ok: true };
+  },
+});
+
+export const myProfileForApp = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await userFromToken(ctx, args.sessionToken);
+    if (!user) return null;
+
+    const c: any = user.contributorId
+      ? await ctx.db.get(user.contributorId as Id<'contributors'>)
+      : null;
+    const agent: any = c ? await ctx.db.get(c.agentId) : null;
+
+    return {
+      name: user.name ?? '',
+      phone: user.phone ?? '',
+      email: user.email ?? '',
+      role: user.role ?? '',
+      address: c?.address ?? '',
+      occupation: c?.occupation ?? '',
+      amount: c?.dailyAmount ?? 0,
+      frequency: c?.frequency ?? 'daily',
+      agentName: agent?.name ?? '',
+      agentPhone: agent?.phone ?? '',
+      bankName: c?.bankName ?? '',
+      accountNumber: c?.accountNumber ?? '',
+      accountName: c?.accountName ?? '',
+    };
+  },
+});
+
+export const clearAllMessagesTemp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query('messages').collect();
+    for (const m of all) await ctx.db.delete(m._id);
+    return { deleted: all.length };
+  },
+});
+
+export const deleteContributorTemp = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const all = await ctx.db.query('contributors').collect();
+    const matches = all.filter(
+      (c) => c.name.toLowerCase() === args.name.toLowerCase(),
+    );
+
+    let removed = 0;
+    for (const c of matches) {
+      const cols = await ctx.db
+        .query('collections')
+        .withIndex('by_contributor', (q) => q.eq('contributorId', c._id))
+        .collect();
+      for (const x of cols) await ctx.db.delete(x._id);
+
+      const wd = await ctx.db
+        .query('withdrawal_requests')
+        .withIndex('by_contributor_and_date', (q) => q.eq('contributorId', c._id))
+        .collect();
+      for (const x of wd) await ctx.db.delete(x._id);
+
+      if (c.userId) {
+        const u = await ctx.db.get(c.userId);
+        if (u) await ctx.db.patch(c.userId, { contributorId: undefined });
+      }
+
+      await ctx.db.delete(c._id);
+      removed += 1;
+    }
+
+    return { removed };
+  },
+});
+
+export const setUserPhoneTemp = mutation({
+  args: { oldPhone: v.string(), newPhone: v.string() },
+  handler: async (ctx, args) => {
+    const u = await ctx.db
+      .query('users')
+      .withIndex('by_phone', (q) => q.eq('phone', args.oldPhone))
+      .first();
+    if (!u) return { ok: false, message: 'no user' };
+    await ctx.db.patch(u._id, { phone: args.newPhone });
+    return { ok: true, name: u.name };
   },
 });

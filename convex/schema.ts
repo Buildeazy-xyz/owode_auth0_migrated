@@ -95,6 +95,9 @@ export default defineSchema({
     address: v.optional(v.string()),
     occupation: v.optional(v.string()),
     pendingAssignment: v.optional(v.boolean()),
+    bankName: v.optional(v.string()),
+    accountNumber: v.optional(v.string()),
+    accountName: v.optional(v.string()),
     /** One-time token so a contributor can claim their account from an SMS link. */
     inviteToken: v.optional(v.string()),
     inviteCreatedAt: v.optional(v.string()),
@@ -149,6 +152,9 @@ export default defineSchema({
       v.literal("rejected"),
     ),
     availableBalanceAtRequest: v.number(),
+    /** OWODE's commission taken from this payout, one per completed cycle. */
+    commissionTaken: v.optional(v.number()),
+    cyclesCharged: v.optional(v.number()),
     contributionDaysAtRequest: v.optional(v.number()),
     contributionFee: v.optional(v.number()),
     penaltyFee: v.optional(v.number()),

@@ -89,6 +89,30 @@ export default function AdminDashboard() {
           <Stat label="Payouts waiting" value={home.pendingWithdrawals.length} />
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            className="rounded-xl p-5 text-white"
+            style={{ backgroundColor: NAVY, borderBottom: '4px solid #d4a017' }}
+          >
+            <p className="text-xs uppercase tracking-wide opacity-70">
+              Company earnings
+            </p>
+            <p className="text-3xl font-bold mt-1">{naira(home.companyProfit)}</p>
+            <p className="text-xs opacity-70 mt-2">
+              Commission taken from paid withdrawals
+            </p>
+          </div>
+          <div className="rounded-xl border bg-white p-5">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Awaiting payout
+            </p>
+            <p className="text-3xl font-bold mt-1">{naira(home.profitPending)}</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Commission on withdrawals not yet paid
+            </p>
+          </div>
+        </div>
+
         <Tabs defaultValue="agents">
           <TabsList>
             <TabsTrigger value="agents">

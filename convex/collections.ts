@@ -1347,6 +1347,21 @@ export const sendMessageForApp = mutation({
       sentAt: now,
     });
 
+    // Tell the other side there is a new message.
+    const otherId =
+      user.role === 'contributor' ? contributor.agentId : contributor.userId;
+    if (otherId) {
+      const other = await ctx.db.get(otherId);
+      if (other?.pushToken) {
+        await ctx.scheduler.runAfter(0, internal.push.sendPush, {
+          token: other.pushToken,
+          title: user.name ?? 'New message',
+          body: args.body.trim().slice(0, 120),
+          data: { contributorId: targetId },
+        });
+      }
+    }
+
     // When a contributor writes and nobody has replied recently, let them know
     // their agent has been notified rather than leaving them in silence.
     if (user.role === 'contributor') {
@@ -1528,6 +1543,20 @@ export const sendVoiceNoteForApp = mutation({
       sentAt: new Date().toISOString(),
     });
 
+    const otherId2 =
+      user.role === 'contributor' ? contributor.agentId : contributor.userId;
+    if (otherId2) {
+      const other2 = await ctx.db.get(otherId2);
+      if (other2?.pushToken) {
+        await ctx.scheduler.runAfter(0, internal.push.sendPush, {
+          token: other2.pushToken,
+          title: user.name ?? 'New message',
+          body: 'Sent you a voice note',
+          data: { contributorId: targetId },
+        });
+      }
+    }
+
     return { ok: true };
   },
 });
@@ -1651,6 +1680,7 @@ export const updateMyBankDetails = mutation({
     bankName: v.string(),
     accountNumber: v.string(),
     accountName: v.string(),
+    email: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await userFromToken(ctx, args.sessionToken);
@@ -1661,7 +1691,11 @@ export const updateMyBankDetails = mutation({
       bankName: args.bankName.trim() || undefined,
       accountNumber: args.accountNumber.trim() || undefined,
       accountName: args.accountName.trim() || undefined,
+      email: args.email?.trim() || undefined,
     });
+    if (args.email !== undefined) {
+      await ctx.db.patch(user._id, { email: args.email.trim() || undefined });
+    }
     return { ok: true };
   },
 });
@@ -1749,5 +1783,15 @@ export const setUserPhoneTemp = mutation({
     if (!u) return { ok: false, message: 'no user' };
     await ctx.db.patch(u._id, { phone: args.newPhone });
     return { ok: true, name: u.name };
+  },
+});
+
+export const savePushToken = mutation({
+  args: { sessionToken: v.string(), pushToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await userFromToken(ctx, args.sessionToken);
+    if (!user) return { ok: false };
+    await ctx.db.patch(user._id, { pushToken: args.pushToken });
+    return { ok: true };
   },
 });

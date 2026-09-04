@@ -6,6 +6,8 @@ import NotFound from "./pages/NotFound.tsx";
 import AppLayout from "./components/AppLayout.tsx";
 import AdminDashboard from "./pages/admin/page.tsx";
 import AdminLoginPage from "./pages/admin-login/page.tsx";
+import PrivacyPage from "./pages/privacy/page.tsx";
+import DeleteAccountPage from "./pages/delete-account/page.tsx";
 import { AdminAuthProvider } from "./context/AdminAuthContext.tsx";
 import AboutPage from "./pages/about/page.tsx";
 import FaqPage from "./pages/faq/page.tsx";
@@ -23,6 +25,8 @@ export default function App() {
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/admin-login" element={<AdminLoginPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/delete-account" element={<DeleteAccountPage />} />
           {/* Protected routes with shared layout */}
           <Route element={<AppLayout />}>
             <Route path="/admin" element={<AdminDashboard />} />

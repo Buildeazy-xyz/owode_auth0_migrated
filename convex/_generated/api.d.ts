@@ -16,6 +16,7 @@ import type * as collections from "../collections.js";
 import type * as contributors from "../contributors.js";
 import type * as crons from "../crons.js";
 import type * as emails from "../emails.js";
+import type * as push from "../push.js";
 import type * as sms from "../sms.js";
 import type * as users from "../users.js";
 import type * as withdrawals from "../withdrawals.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   contributors: typeof contributors;
   crons: typeof crons;
   emails: typeof emails;
+  push: typeof push;
   sms: typeof sms;
   users: typeof users;
   withdrawals: typeof withdrawals;

@@ -38,6 +38,7 @@ export default defineSchema({
     sessionToken: v.optional(v.string()),
     /** Four-digit PIN confirming money actions. Agents and admins only. */
     pinHash: v.optional(v.string()),
+    pushToken: v.optional(v.string()),
     resetCode: v.optional(v.string()),
     resetCodeExpiresAt: v.optional(v.string()),
     resetAttempts: v.optional(v.number()),

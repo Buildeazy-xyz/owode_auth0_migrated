@@ -3,7 +3,6 @@ import { DefaultProviders } from "./components/providers/default.tsx";
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import AppLayout from "./components/AppLayout.tsx";
 import AdminDashboard from "./pages/admin/page.tsx";
 import AdminLoginPage from "./pages/admin-login/page.tsx";
 import PrivacyPage from "./pages/privacy/page.tsx";
@@ -28,9 +27,7 @@ export default function App() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/delete-account" element={<DeleteAccountPage />} />
           {/* Protected routes with shared layout */}
-          <Route element={<AppLayout />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-          </Route>
+          <Route path="/admin" element={<AdminDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

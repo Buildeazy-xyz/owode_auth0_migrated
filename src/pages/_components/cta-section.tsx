@@ -1,10 +1,8 @@
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button.tsx";
 import { ArrowRight } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth.ts";
 
 export default function CtaSection() {
-  const { signinRedirect } = useAuth();
 
   return (
     <section className="py-20 lg:py-28">
@@ -33,14 +31,14 @@ export default function CtaSection() {
               <Button
                 size="lg"
                 className="gap-2"
-                onClick={() => signinRedirect()}
+                onClick={() => { window.location.href = "#get-the-app"; }}
               >
                 Get Started Free <ArrowRight className="w-4 h-4" />
               </Button>
               <Button
                 size="lg"
                 className="bg-red-600 text-white hover:bg-red-700"
-                onClick={() => signinRedirect()}
+                onClick={() => { window.location.href = "#get-the-app"; }}
               >
                 {"I'm an Agent"}
               </Button>

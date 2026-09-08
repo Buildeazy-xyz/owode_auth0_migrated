@@ -1,7 +1,6 @@
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button.tsx";
 import { ArrowRight, Shield, Bell, Smartphone } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth.ts";
 
 const HERO_IMAGE = "/images/hero.png";
 
@@ -12,7 +11,6 @@ const MINI_STATS = [
 ];
 
 export default function HeroSection() {
-  const { signinRedirect } = useAuth();
 
   return (
     <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
@@ -67,14 +65,14 @@ export default function HeroSection() {
               <Button
                 size="lg"
                 className="gap-2"
-                onClick={() => signinRedirect()}
+                onClick={() => { window.location.href = "#get-the-app"; }}
               >
                 {"I'm a Contributor"} <ArrowRight className="w-4 h-4" />
               </Button>
               <Button
                 size="lg"
                 className="gap-2 bg-red-600 text-white hover:bg-red-700"
-                onClick={() => signinRedirect()}
+                onClick={() => { window.location.href = "#get-the-app"; }}
               >
                 {"I'm an Agent"} <Smartphone className="w-4 h-4" />
               </Button>

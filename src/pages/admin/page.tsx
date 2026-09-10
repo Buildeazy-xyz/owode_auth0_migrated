@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx';
 import { toast } from 'sonner';
 import { useAdminAuth } from '@/context/AdminAuthContext.tsx';
+import MessagesPanel from './_components/messages-panel.tsx';
 
 const NAVY = '#1e3a6d';
 const naira = (n: number) => '₦' + (n ?? 0).toLocaleString('en-NG');
@@ -124,6 +125,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="payouts">
               Payouts {home.pendingWithdrawals.length ? `(${home.pendingWithdrawals.length})` : ''}
             </TabsTrigger>
+            <TabsTrigger value="messages">Messages</TabsTrigger>
           </TabsList>
 
           <TabsContent value="agents" className="space-y-6 pt-4">
@@ -259,6 +261,10 @@ export default function AdminDashboard() {
                 ))
               )}
             </Section>
+          </TabsContent>
+
+          <TabsContent value="messages" className="pt-4">
+            <MessagesPanel />
           </TabsContent>
         </Tabs>
       </div>

@@ -180,6 +180,27 @@ function Conversation({
     api.collections.listMessagesForApp,
     token ? { sessionToken: token, contributorId: contributorId as any } : "skip",
   );
+  const broadcast = useMutation(api.collections.broadcastFromAdmin);
+  const [replyBody, setReplyBody] = useState("");
+  const [replying, setReplying] = useState(false);
+
+  const sendReply = async () => {
+    if (!replyBody.trim()) return;
+    try {
+      setReplying(true);
+      await broadcast({
+        sessionToken: token!,
+        body: replyBody,
+        contributorId: contributorId as any,
+      });
+      setReplyBody("");
+      toast.success("Message sent");
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? "Could not send");
+    } finally {
+      setReplying(false);
+    }
+  };
 
   if (data === undefined) {
     return (
@@ -258,6 +279,21 @@ function Conversation({
             );
           })
         )}
+      </div>
+
+      <div className="rounded-lg border bg-white p-4 space-y-3">
+        <Textarea
+          value={replyBody}
+          onChange={(e) => setReplyBody(e.target.value)}
+          placeholder="Write a message to this saver"
+          rows={2}
+        />
+        <div className="flex justify-end">
+          <Button size="sm" className="gap-2" onClick={sendReply} disabled={replying}>
+            <Send className="w-3.5 h-3.5" />
+            {replying ? "Sending..." : "Send"}
+          </Button>
+        </div>
       </div>
     </div>
   );

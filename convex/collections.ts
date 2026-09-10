@@ -1795,3 +1795,63 @@ export const savePushToken = mutation({
     return { ok: true };
   },
 });
+
+export const adminConversationsByAgent = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user || (user.role !== 'admin' && !user.isSuperAdmin)) return null;
+
+    const all = await ctx.db.query('messages').collect();
+
+    // Group by contributor first, then fold those under their agent.
+    const byContributor = new Map<string, any[]>();
+    for (const m of all) {
+      const key = m.contributorId as unknown as string;
+      if (!byContributor.has(key)) byContributor.set(key, []);
+      byContributor.get(key)!.push(m);
+    }
+
+    const agents: Record<string, any> = {};
+
+    for (const [id, msgs] of byContributor.entries()) {
+      const c: any = await ctx.db.get(id as any);
+      if (!c) continue;
+
+      const agent: any = await ctx.db.get(c.agentId);
+      const agentKey = c.agentId as unknown as string;
+
+      if (!agents[agentKey]) {
+        agents[agentKey] = {
+          agentId: agentKey,
+          agentName: agent?.name ?? 'Unassigned',
+          agentPhone: agent?.phone ?? '',
+          contributors: [] as any[],
+          totalMessages: 0,
+        };
+      }
+
+      const sorted = msgs.sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+
+      agents[agentKey].contributors.push({
+        contributorId: id,
+        contributorName: c.name ?? 'Unknown',
+        contributorPhone: c.phone ?? '',
+        last: sorted[0]?.body ?? '',
+        lastAt: sorted[0]?.sentAt ?? '',
+        count: msgs.length,
+      });
+      agents[agentKey].totalMessages += msgs.length;
+    }
+
+    return Object.values(agents).map((a: any) => ({
+      ...a,
+      contributors: a.contributors.sort(
+        (x: any, y: any) => y.lastAt.localeCompare(x.lastAt),
+      ),
+    }));
+  },
+});

@@ -1900,3 +1900,77 @@ export const adminConversationsByAgent = query({
     }));
   },
 });
+
+/**
+ * A message from OWODE to every contributor, or to just one.
+ * It lands in their chat and sends a notification.
+ */
+export const broadcastFromAdmin = mutation({
+  args: {
+    sessionToken: v.string(),
+    body: v.string(),
+    contributorId: v.optional(v.id('contributors')),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdminSession(ctx, args.sessionToken);
+
+    const body = args.body.trim();
+    if (!body) {
+      throw new ConvexError({ code: 'BAD_REQUEST', message: 'Type a message' });
+    }
+
+    const all = await ctx.db.query('contributors').collect();
+    const targets = args.contributorId
+      ? all.filter((c) => c._id === args.contributorId)
+      : all.filter((c) => c.status === 'active');
+
+    const now = new Date().toISOString();
+    let sent = 0;
+    let notified = 0;
+
+    for (const c of targets) {
+      await ctx.db.insert('messages', {
+        contributorId: c._id,
+        agentId: c.agentId,
+        senderId: admin._id,
+        senderRole: 'admin' as const,
+        body,
+        sentAt: now,
+      });
+      sent += 1;
+
+      if (c.userId) {
+        const u = await ctx.db.get(c.userId);
+        if (u?.pushToken) {
+          await ctx.scheduler.runAfter(0, internal.push.sendPush, {
+            token: u.pushToken,
+            title: 'OWODE',
+            body: body.slice(0, 120),
+            data: { contributorId: c._id },
+          });
+          notified += 1;
+        }
+      }
+    }
+
+    return { sent, notified };
+  },
+});
+
+/** Every active contributor, for the admin to pick one. */
+export const adminContributorList = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user || (user.role !== 'admin' && !user.isSuperAdmin)) return null;
+
+    const all = await ctx.db.query('contributors').collect();
+    return all
+      .filter((c) => c.status === 'active')
+      .map((c) => ({ id: c._id, name: c.name, phone: c.phone }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});

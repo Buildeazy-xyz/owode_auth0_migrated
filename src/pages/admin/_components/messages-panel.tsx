@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { ChevronRight, ArrowLeft, MessageSquare, User, Users } from "lucide-react";
+import { ChevronRight, ArrowLeft, MessageSquare, User, Users, Send, Megaphone } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea.tsx";
+import { toast } from "sonner";
 import { useAdminAuth } from "@/context/AdminAuthContext.tsx";
 
 const NAVY = "#1e3a6d";
@@ -27,6 +29,25 @@ export default function MessagesPanel() {
 
   const [agentId, setAgentId] = useState<string | null>(null);
   const [contributorId, setContributorId] = useState<string | null>(null);
+  const [announce, setAnnounce] = useState("");
+  const [sending, setSending] = useState(false);
+  const broadcast = useMutation(api.collections.broadcastFromAdmin);
+
+  const sendAnnouncement = async () => {
+    if (!announce.trim()) return;
+    try {
+      setSending(true);
+      const r = await broadcast({ sessionToken: token!, body: announce });
+      toast.success(
+        `Sent to ${r.sent} saver${r.sent === 1 ? "" : "s"}, ${r.notified} notified`,
+      );
+      setAnnounce("");
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? "Could not send");
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (agents === undefined) {
     return (
@@ -101,6 +122,27 @@ export default function MessagesPanel() {
 
   return (
     <div className="space-y-3">
+      <div className="rounded-lg border bg-white p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Megaphone className="w-4 h-4" style={{ color: NAVY }} />
+          <p className="font-semibold text-sm" style={{ color: NAVY }}>
+            Message all savers
+          </p>
+        </div>
+        <Textarea
+          value={announce}
+          onChange={(e) => setAnnounce(e.target.value)}
+          placeholder="Write an announcement for every active saver"
+          rows={3}
+        />
+        <div className="flex justify-end">
+          <Button size="sm" className="gap-2" onClick={sendAnnouncement} disabled={sending}>
+            <Send className="w-3.5 h-3.5" />
+            {sending ? "Sending..." : "Send to all"}
+          </Button>
+        </div>
+      </div>
+
       {agents.map((a: any) => (
         <button
           key={a.agentId}

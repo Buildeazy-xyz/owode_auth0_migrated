@@ -731,9 +731,54 @@ export const agentHomeForApp = query({
       c.collectedAt.startsWith(today),
     );
 
+    // What this agent has earned OWODE, from withdrawals already paid out.
+    const agentWithdrawals = await ctx.db
+      .query('withdrawal_requests')
+      .withIndex('by_agent_and_date', (q) => q.eq('agentId', user._id))
+      .collect();
+
+    const profitEarned = agentWithdrawals
+      .filter((w) => w.status === 'paid')
+      .reduce((s, w) => s + (w.commissionTaken ?? 0), 0);
+
+    const confirmedTotal = allCollections
+      .filter((c) => c.status === 'confirmed')
+      .reduce((s, c) => s + c.amount, 0);
+
+    const pendingTotal = allCollections
+      .filter((c) => c.status !== 'confirmed')
+      .reduce((s, c) => s + c.amount, 0);
+
     return {
       agentName: user.name ?? '',
       agentStatus: user.agentStatus ?? 'pending',
+      confirmedTotal,
+      pendingTotal,
+      profitEarned,
+      payouts: await Promise.all(
+        agentWithdrawals
+          .filter((w) => w.status === 'submitted' || w.status === 'processing')
+          .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
+          .map(async (w) => {
+            const c: any = await ctx.db.get(w.contributorId);
+            return {
+              id: w._id,
+              name: c?.name ?? 'Unknown',
+              phone: c?.phone ?? '',
+              amount: w.amount,
+              payout: w.payoutAmount ?? w.amount,
+              commission: w.commissionTaken ?? 0,
+              bankName: w.bankName,
+              accountNumber: w.accountNumber,
+              accountName: w.accountName,
+              note: w.note ?? '',
+              reference: w.referenceNumber,
+              status: w.status,
+              requestedAt: w.requestedAt,
+              awaitingSecond: Boolean(w.firstApprovedBy),
+            };
+          }),
+      ),
       contributorCount: contributors.length,
       todayTotal: todayCollections.reduce((s, c) => s + c.amount, 0),
       todayCount: todayCollections.length,

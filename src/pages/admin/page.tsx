@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const reviewWithdrawal = useMutation(api.collections.reviewWithdrawalForApp);
 
   const [picking, setPicking] = useState<any>(null);
+  const [viewing, setViewing] = useState<any>(null);
 
   useEffect(() => {
     if (!loading && !token) navigate('/admin-login', { replace: true });
@@ -242,22 +243,22 @@ export default function AdminDashboard() {
                 <Empty />
               ) : (
                 home.pendingWithdrawals.map((w: any) => (
-                  <Row
+                  <button
                     key={w.id}
-                    title={`${w.name} - ${naira(w.payout)}`}
-                    subtitle={`${w.bankName} ${w.accountNumber}${w.awaitingSecond ? ' - needs a second admin' : ''}`}
+                    onClick={() => setViewing(w)}
+                    className="w-full text-left rounded-lg border bg-white p-4 flex items-center gap-3 hover:bg-muted/40 transition"
                   >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => doReviewWithdrawal(w.id, 'rejected')}
-                    >
-                      Decline
-                    </Button>
-                    <Button size="sm" onClick={() => doReviewWithdrawal(w.id, 'paid')}>
-                      {w.awaitingSecond ? 'Confirm payout' : 'Approve'}
-                    </Button>
-                  </Row>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {w.name} {"\u2014"} {naira(w.payout)}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {w.bankName} {w.accountNumber}
+                        {w.awaitingSecond ? " \u2022 needs a second admin" : ""}
+                      </p>
+                    </div>
+                    <span className="text-muted-foreground shrink-0">{"\u203A"}</span>
+                  </button>
                 ))
               )}
             </Section>
@@ -268,6 +269,78 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {viewing ? (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-lg my-8">
+            <div
+              className="rounded-t-xl p-6 text-white"
+              style={{ backgroundColor: NAVY, borderBottom: '4px solid #d4a017' }}
+            >
+              <p className="text-xs uppercase tracking-wide opacity-70">To pay out</p>
+              <p className="text-3xl font-bold mt-1">{naira(viewing.payout)}</p>
+              <p className="text-xs opacity-70 mt-2">
+                {viewing.commission
+                  ? `${naira(viewing.amount)} requested, less ${naira(viewing.commission)} commission`
+                  : `${naira(viewing.amount)} requested`}
+              </p>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {viewing.awaitingSecond ? (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-xs text-amber-900 font-medium">
+                    One administrator has approved this. A second must confirm before payment.
+                  </p>
+                </div>
+              ) : null}
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Saver</p>
+                <p className="font-medium">{viewing.name}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Pay into</p>
+                <p className="font-medium">{viewing.bankName}</p>
+                <p className="text-sm">{viewing.accountNumber}</p>
+                <p className="text-sm text-muted-foreground">{viewing.accountName}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Reference</p>
+                <p className="text-sm">{viewing.reference}</p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={async () => {
+                    await doReviewWithdrawal(viewing.id, 'rejected');
+                    setViewing(null);
+                  }}
+                >
+                  Decline
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={async () => {
+                    await doReviewWithdrawal(viewing.id, 'paid');
+                    setViewing(null);
+                  }}
+                >
+                  {viewing.awaitingSecond ? 'Confirm payout' : 'Approve'}
+                </Button>
+              </div>
+
+              <Button variant="ghost" className="w-full" onClick={() => setViewing(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {picking ? (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">

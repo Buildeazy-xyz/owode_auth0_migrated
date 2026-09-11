@@ -662,6 +662,10 @@ export const myCardForApp = query({
       .collect();
 
     const totalSaved = collections.reduce((sum, c) => sum + c.amount, 0);
+    // Only payments OWODE has confirmed can be withdrawn.
+    const confirmedSaved = collections
+      .filter((c) => c.status === 'confirmed')
+      .reduce((sum, c) => sum + c.amount, 0);
 
     const withdrawals = await ctx.db
       .query('withdrawal_requests')
@@ -688,7 +692,7 @@ export const myCardForApp = query({
       dailyAmount: contributor.dailyAmount,
       frequency: contributor.frequency ?? 'daily',
       totalSaved,
-      available: Math.max(0, totalSaved - paidOut),
+      available: Math.max(0, confirmedSaved - paidOut),
       contributionCount: collections.length,
       agentName: agent?.name ?? '',
       agentPhone: agent?.phone ?? '',
@@ -1145,7 +1149,9 @@ export const requestWithdrawalForApp = mutation({
       .query('collections')
       .withIndex('by_contributor', (q) => q.eq('contributorId', contributor._id))
       .collect();
-    const totalSaved = collections.reduce((s, c) => s + c.amount, 0);
+    const totalSaved = collections
+      .filter((c) => c.status === 'confirmed')
+      .reduce((s, c) => s + c.amount, 0);
 
     const previous = await ctx.db
       .query('withdrawal_requests')
@@ -1248,6 +1254,10 @@ export const contributorDetailForApp = query({
       .collect();
 
     const totalSaved = collections.reduce((s, x) => s + x.amount, 0);
+    // Only payments OWODE has confirmed can be withdrawn.
+    const confirmedSaved = collections
+      .filter((x) => x.status === 'confirmed')
+      .reduce((s, x) => s + x.amount, 0);
 
     const withdrawals = await ctx.db
       .query('withdrawal_requests')
@@ -1275,7 +1285,8 @@ export const contributorDetailForApp = query({
       frequency: c.frequency ?? 'daily',
       status: c.status,
       totalSaved,
-      available: Math.max(0, totalSaved - taken),
+      available: Math.max(0, confirmedSaved - taken),
+      pendingAmount: totalSaved - confirmedSaved,
       paymentCount: collections.length,
       todayCount: todays.length,
       todayTotal: todays.reduce((s, x) => s + x.amount, 0),
@@ -1635,7 +1646,9 @@ export const requestOwnWithdrawal = mutation({
       .query('collections')
       .withIndex('by_contributor', (q) => q.eq('contributorId', contributor._id))
       .collect();
-    const totalSaved = collections.reduce((s, c) => s + c.amount, 0);
+    const totalSaved = collections
+      .filter((c) => c.status === 'confirmed')
+      .reduce((s, c) => s + c.amount, 0);
 
     const previous = await ctx.db
       .query('withdrawal_requests')
@@ -1972,5 +1985,82 @@ export const adminContributorList = query({
       .filter((c) => c.status === 'active')
       .map((c) => ({ id: c._id, name: c.name, phone: c.phone }))
       .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+export const confirmCollectionForApp = mutation({
+  args: {
+    sessionToken: v.string(),
+    collectionId: v.id('collections'),
+    action: v.union(v.literal('confirmed'), v.literal('disputed')),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdminSession(ctx, args.sessionToken);
+    const c = await ctx.db.get(args.collectionId);
+    if (!c) {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Payment not found' });
+    }
+    await ctx.db.patch(args.collectionId, {
+      status: args.action,
+      reviewedBy: admin._id,
+      reviewedAt: new Date().toISOString(),
+      reviewNote: args.note?.trim() || undefined,
+    });
+    return { ok: true };
+  },
+});
+
+export const confirmAllPendingForApp = mutation({
+  args: { sessionToken: v.string(), agentId: v.optional(v.id('users')) },
+  handler: async (ctx, args) => {
+    const admin = await requireAdminSession(ctx, args.sessionToken);
+    const all = await ctx.db.query('collections').collect();
+    const now = new Date().toISOString();
+    let count = 0;
+    for (const c of all) {
+      if (c.status !== 'pending') continue;
+      if (args.agentId && c.agentId !== args.agentId) continue;
+      await ctx.db.patch(c._id, {
+        status: 'confirmed',
+        reviewedBy: admin._id,
+        reviewedAt: now,
+      });
+      count += 1;
+    }
+    return { confirmed: count };
+  },
+});
+
+export const adminPendingCollections = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_session', (q) => q.eq('sessionToken', args.sessionToken))
+      .first();
+    if (!user || (user.role !== 'admin' && !user.isSuperAdmin)) return null;
+
+    const all = await ctx.db.query('collections').collect();
+    const pending = all.filter((c) => c.status === 'pending');
+
+    return await Promise.all(
+      pending
+        .sort((a, b) => b.collectedAt.localeCompare(a.collectedAt))
+        .slice(0, 200)
+        .map(async (c) => {
+          const con: any = await ctx.db.get(c.contributorId);
+          const agent: any = await ctx.db.get(c.agentId);
+          return {
+            id: c._id,
+            amount: c.amount,
+            collectedAt: c.collectedAt,
+            method: c.paymentMethod,
+            reference: c.referenceNumber,
+            contributorName: con?.name ?? 'Unknown',
+            agentName: agent?.name ?? '',
+          };
+        }),
+    );
   },
 });

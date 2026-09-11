@@ -28,6 +28,12 @@ export default function AdminDashboard() {
 
   const [picking, setPicking] = useState<any>(null);
   const [viewing, setViewing] = useState<any>(null);
+  const pendingPayments = useQuery(
+    api.collections.adminPendingCollections,
+    token ? { sessionToken: token } : 'skip',
+  );
+  const confirmPayment = useMutation(api.collections.confirmCollectionForApp);
+  const confirmAll = useMutation(api.collections.confirmAllPendingForApp);
 
   useEffect(() => {
     if (!loading && !token) navigate('/admin-login', { replace: true });
@@ -125,6 +131,9 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="payouts">
               Payouts {home.pendingWithdrawals.length ? `(${home.pendingWithdrawals.length})` : ''}
+            </TabsTrigger>
+            <TabsTrigger value="payments">
+              Payments {pendingPayments?.length ? `(${pendingPayments.length})` : ''}
             </TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
           </TabsList>
@@ -262,6 +271,91 @@ export default function AdminDashboard() {
                 ))
               )}
             </Section>
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-4 pt-4">
+            {pendingPayments === undefined ? (
+              <Spinner className="size-6" />
+            ) : !pendingPayments || pendingPayments.length === 0 ? (
+              <div>
+                <Section title="Awaiting confirmation">
+                  <Empty />
+                </Section>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-lg border bg-white p-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-sm">
+                      {pendingPayments.length} payment
+                      {pendingPayments.length === 1 ? '' : 's'} awaiting confirmation
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Savers cannot withdraw a payment until it is confirmed.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const r = await confirmAll({ sessionToken: token! });
+                        toast.success(`Confirmed ${r.confirmed} payments`);
+                      } catch (e: any) {
+                        toast.error(e?.data?.message ?? 'Could not confirm');
+                      }
+                    }}
+                  >
+                    Confirm all
+                  </Button>
+                </div>
+
+                {pendingPayments.map((c: any) => (
+                  <Row
+                    key={c.id}
+                    title={`${c.contributorName} \u2014 ${naira(c.amount)}`}
+                    subtitle={`${new Date(c.collectedAt).toLocaleDateString('en-NG', {
+                      day: 'numeric', month: 'short',
+                    })} \u2022 ${c.method === 'bank_transfer' ? 'Transfer' : 'Cash'} \u2022 ${c.agentName}`}
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await confirmPayment({
+                            sessionToken: token!,
+                            collectionId: c.id,
+                            action: 'disputed',
+                          });
+                          toast.success('Marked as disputed');
+                        } catch (e: any) {
+                          toast.error(e?.data?.message ?? 'Could not update');
+                        }
+                      }}
+                    >
+                      Dispute
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await confirmPayment({
+                            sessionToken: token!,
+                            collectionId: c.id,
+                            action: 'confirmed',
+                          });
+                          toast.success('Confirmed');
+                        } catch (e: any) {
+                          toast.error(e?.data?.message ?? 'Could not update');
+                        }
+                      }}
+                    >
+                      Confirm
+                    </Button>
+                  </Row>
+                ))}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="messages" className="pt-4">
